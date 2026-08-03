@@ -23,8 +23,39 @@ def get_trade_client():
     return TradeClient(api_client)
 
 
-def debug_everything():
+def test_webull_connection():
+    try:
+        trade_client = get_trade_client()
 
+        response = trade_client.account_v2.get_account_list()
+
+        return {
+            "success": True,
+            "account": response.json()
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def paper_buy_spy():
+    return {
+        "success": False,
+        "message": "Temporary diagnostic mode"
+    }
+
+
+def test_options():
+    return {
+        "success": False,
+        "message": "Temporary diagnostic mode"
+    }
+
+
+def debug_trade_client():
     try:
         trade_client = get_trade_client()
 
@@ -52,35 +83,19 @@ def debug_everything():
                         trade_client.trade_instrument.get_trade_instrument_detail
                     )
                 ),
+
                 "security": str(
                     inspect.signature(
                         trade_client.trade_instrument.get_trade_security_detail
                     )
                 ),
+
                 "tradable": str(
                     inspect.signature(
                         trade_client.trade_instrument.get_tradeable_instruments
                     )
                 )
             }
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
-def test_webull_connection():
-    try:
-        trade_client = get_trade_client()
-
-        response = trade_client.account_v2.get_account_list()
-
-        return {
-            "success": True,
-            "account": response.json()
         }
 
     except Exception as e:
