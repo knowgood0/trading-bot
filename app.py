@@ -12,7 +12,6 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-
     return jsonify({
         "status": "Trading bot running"
     })
@@ -20,7 +19,6 @@ def home():
 
 @app.route("/webull-test")
 def webull_test():
-
     return jsonify(
         test_webull_connection()
     )
@@ -28,7 +26,6 @@ def webull_test():
 
 @app.route("/options-test")
 def options_test():
-
     return jsonify(
         test_options()
     )
@@ -36,7 +33,6 @@ def options_test():
 
 @app.route("/buy-test")
 def buy_test():
-
     return jsonify(
         paper_buy_spy()
     )
