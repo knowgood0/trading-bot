@@ -29,9 +29,16 @@ def test_webull_connection():
 
         response = trade_client.account_v2.get_account_list()
 
+        if response.status_code == 200:
+            return {
+                "success": True,
+                "account": response.json()
+            }
+
         return {
-            "success": True,
-            "account": response.json()
+            "success": False,
+            "status": response.status_code,
+            "error": response.text
         }
 
     except Exception as e:
@@ -47,12 +54,6 @@ def paper_buy_spy():
 
         account_id = os.environ.get("WEBULL_ACCOUNT_ID")
 
-        if not account_id:
-            return {
-                "success": False,
-                "error": "Missing WEBULL_ACCOUNT_ID"
-            }
-
         order_id = uuid.uuid4().hex
 
         order = [
@@ -66,8 +67,7 @@ def paper_buy_spy():
                 "quantity": "1",
                 "side": "BUY",
                 "time_in_force": "DAY",
-                "entrust_type": "QTY",
-                "support_trading_session": "CORE"
+                "entrust_type": "QTY"
             }
         ]
 
@@ -79,6 +79,27 @@ def paper_buy_spy():
         return {
             "success": True,
             "response": response.json()
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def test_options():
+    try:
+        trade_client = get_trade_client()
+
+        # Try to retrieve SPY option chain
+        response = trade_client.option.get_option_chain(
+            "SPY"
+        )
+
+        return {
+            "success": True,
+            "options": response.json()
         }
 
     except Exception as e:
