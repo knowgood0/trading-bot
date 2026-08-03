@@ -1,11 +1,12 @@
 import os
-import glob
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
+from webull.data.data_client import DataClient
 
 
-def get_trade_client():
+def get_clients():
+
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
 
@@ -20,12 +21,16 @@ def get_trade_client():
         "api.sandbox.webull.com"
     )
 
-    return TradeClient(api_client)
+    return (
+        TradeClient(api_client),
+        DataClient(api_client)
+    )
 
 
 def test_webull_connection():
+
     try:
-        trade_client = get_trade_client()
+        trade_client, data_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -41,60 +46,38 @@ def test_webull_connection():
         }
 
 
-def paper_buy_spy():
-    return {
-        "success": False,
-        "message": "Disabled while building options"
-    }
+def option_methods():
 
-
-def test_options():
-    return debug_option_models()
-
-
-def debug_option_models():
     try:
-        results = []
 
-        files = glob.glob(
-            "/opt/render/project/src/.venv/lib/python3.14/site-packages/webull/**/*.py",
-            recursive=True
-        )
-
-        for file in files:
-            if "option" in file.lower():
-
-                try:
-                    with open(file, "r", errors="ignore") as f:
-                        text = f.read()
-
-                    matches = []
-
-                    for line in text.split("\n"):
-                        if (
-                            "strike" in line.lower()
-                            or "expiration" in line.lower()
-                            or "instrument_id" in line.lower()
-                            or "symbol" in line.lower()
-                        ):
-                            matches.append(line.strip())
-
-                    if matches:
-                        results.append({
-                            "file": file,
-                            "matches": matches[:25]
-                        })
-
-                except:
-                    pass
+        trade_client, data_client = get_clients()
 
         return {
             "success": True,
-            "results": results
+            "data_methods": [
+                x for x in dir(data_client)
+                if "option" in x.lower()
+            ],
+            "trade_methods": [
+                x for x in dir(trade_client)
+                if "option" in x.lower()
+            ]
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
         }
+
+
+def paper_buy_spy():
+    return {
+        "success": False,
+        "message": "Waiting for option contract selection"
+    }
+
+
+def test_options():
+    return option_methods()
