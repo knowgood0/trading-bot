@@ -3,8 +3,7 @@ from flask import Flask, jsonify
 from webull_client import (
     test_webull_connection,
     paper_buy_spy,
-    test_options,
-    debug_option_models
+    test_options
 )
 
 
@@ -13,36 +12,33 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+
     return jsonify({
-        "status": "Trading bot is running"
+        "status": "Trading bot running"
     })
 
 
 @app.route("/webull-test")
 def webull_test():
+
     return jsonify(
         test_webull_connection()
     )
 
 
-@app.route("/buy-test")
-def buy_test():
-    return jsonify(
-        paper_buy_spy()
-    )
-
-
 @app.route("/options-test")
 def options_test():
+
     return jsonify(
         test_options()
     )
 
 
-@app.route("/option-models")
-def option_models():
+@app.route("/buy-test")
+def buy_test():
+
     return jsonify(
-        debug_option_models()
+        paper_buy_spy()
     )
 
 
