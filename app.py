@@ -4,7 +4,8 @@ from datetime import datetime
 from webull_client import (
     test_webull_connection,
     paper_buy_spy,
-    test_options
+    test_options,
+    debug_trade_client
 )
 
 app = Flask(__name__)
@@ -35,6 +36,11 @@ def buy_test():
 @app.route("/options-test")
 def options_test():
     return jsonify(test_options())
+
+
+@app.route("/debug")
+def debug():
+    return jsonify(debug_trade_client())
 
 
 @app.route("/tradingview-webhook", methods=["POST"])
