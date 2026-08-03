@@ -1,9 +1,9 @@
 import os
+import glob
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
-from webull.trade.request.v2.place_option_request import PlaceOptionRequest
 
 
 def get_clients():
@@ -48,21 +48,40 @@ def test_webull_connection():
         }
 
 
-def test_options():
+def find_option_examples():
 
     try:
-        trade_client, data_client = get_clients()
+
+        matches = []
+
+        files = glob.glob(
+            "/opt/render/project/src/.venv/lib/python3.14/site-packages/webull/**/*.py",
+            recursive=True
+        )
+
+        for file in files:
+
+            if "option" in file.lower():
+
+                with open(file, "r", errors="ignore") as f:
+                    text = f.read()
+
+                for line in text.split("\n"):
+
+                    if (
+                        "new_orders" in line
+                        or "legs" in line
+                        or "option_symbol" in line
+                        or "instrument_type" in line
+                    ):
+                        matches.append({
+                            "file": file.split("/")[-1],
+                            "line": line.strip()
+                        })
 
         return {
             "success": True,
-            "data_modules": [
-                x for x in dir(data_client)
-                if not x.startswith("_")
-            ],
-            "trade_modules": [
-                x for x in dir(trade_client)
-                if not x.startswith("_")
-            ]
+            "matches": matches[:100]
         }
 
     except Exception as e:
@@ -81,24 +100,6 @@ def paper_buy_spy():
     }
 
 
-def debug_place_option_request():
+def test_options():
 
-    try:
-
-        request = PlaceOptionRequest()
-
-        return {
-            "success": True,
-            "methods": [
-                x for x in dir(request)
-                if not x.startswith("_")
-            ],
-            "class": str(type(request))
-        }
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
+    return find_option_examples()
