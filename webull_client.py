@@ -40,6 +40,7 @@ def test_webull_connection():
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -51,13 +52,15 @@ def test_options():
     try:
         trade_client, data_client = get_clients()
 
-        option_module = data_client.option_market_data
-
         return {
             "success": True,
-            "option_methods": [
-                method for method in dir(option_module)
-                if not method.startswith("_")
+            "data_client_modules": [
+                x for x in dir(data_client)
+                if not x.startswith("_")
+            ],
+            "trade_client_modules": [
+                x for x in dir(trade_client)
+                if not x.startswith("_")
             ]
         }
 
@@ -73,5 +76,5 @@ def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Option testing only"
+        "message": "Waiting for option contract lookup"
     }
