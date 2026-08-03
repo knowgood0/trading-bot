@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -33,6 +34,7 @@ def get_clients():
 def test_webull_connection():
 
     try:
+
         trade_client, data_client, api_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
@@ -43,6 +45,7 @@ def test_webull_connection():
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -53,17 +56,32 @@ def test_options():
 
     try:
 
+        trade_client, data_client, api_client = get_clients()
+
         request = GetOptionContractsRequest()
+
+        request.set_underlying_symbols("SPY")
+        request.set_page_size(10)
+
+        today = datetime.now()
+
+        future = today + timedelta(days=45)
+
+        request.set_start_date(
+            today.strftime("%Y-%m-%d")
+        )
+
+        request.set_end_date(
+            future.strftime("%Y-%m-%d")
+        )
+
+        request.set_status("ACTIVE")
+
+        response = api_client.get_response(request)
 
         return {
             "success": True,
-            "methods": [
-                x for x in dir(request)
-                if not x.startswith("_")
-            ],
-            "query_params": request.get_query_params(),
-            "endpoint": request.get_endpoint(),
-            "version": request.get_version()
+            "response": response.json()
         }
 
     except Exception as e:
@@ -78,5 +96,5 @@ def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Waiting for option contract lookup"
+        "message": "Waiting for option contract selection"
     }
