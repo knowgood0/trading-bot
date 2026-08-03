@@ -48,14 +48,6 @@ def test_webull_connection():
         }
 
 
-def paper_buy_spy():
-
-    return {
-        "success": False,
-        "message": "Waiting for option order setup"
-    }
-
-
 def test_options():
 
     try:
@@ -81,6 +73,14 @@ def test_options():
         }
 
 
+def paper_buy_spy():
+
+    return {
+        "success": False,
+        "message": "Waiting for option order setup"
+    }
+
+
 def debug_place_option_request():
 
     try:
@@ -93,7 +93,7 @@ def debug_place_option_request():
                 x for x in dir(request)
                 if not x.startswith("_")
             ],
-            "attributes": request.__dict__
+            "class": str(type(request))
         }
 
     except Exception as e:
