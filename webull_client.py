@@ -1,46 +1,32 @@
 import os
-import inspect
-
-from webull.core.client import ApiClient
-from webull.trade.trade_client import TradeClient
+import glob
 
 
-def get_trade_client():
-    app_key = os.environ.get("WEBULL_APP_KEY")
-    app_secret = os.environ.get("WEBULL_APP_SECRET")
-
-    api_client = ApiClient(
-        app_key,
-        app_secret,
-        "us"
-    )
-
-    api_client.add_endpoint(
-        "us",
-        "api.sandbox.webull.com"
-    )
-
-    return TradeClient(api_client)
-
-
-def debug_trade_client():
-
+def debug_option_files():
     try:
-        trade_client = get_trade_client()
+        target_files = []
+
+        files = glob.glob(
+            "/opt/render/project/src/.venv/lib/python3.14/site-packages/webull/**/*.py",
+            recursive=True
+        )
+
+        for file in files:
+            if (
+                "place_option_request.py" in file
+                or "order_operation_v2.py" in file
+            ):
+                with open(file, "r", errors="ignore") as f:
+                    content = f.read()
+
+                target_files.append({
+                    "file": file,
+                    "content": content[:8000]
+                })
 
         return {
             "success": True,
-
-            "order_v2_methods": [
-                x for x in dir(trade_client.order_v2)
-                if not x.startswith("_")
-            ],
-
-            "order_v2_signatures": {
-                x: str(inspect.signature(getattr(trade_client.order_v2, x)))
-                for x in dir(trade_client.order_v2)
-                if "option" in x.lower()
-            }
+            "files": target_files
         }
 
     except Exception as e:
@@ -51,12 +37,18 @@ def debug_trade_client():
 
 
 def test_webull_connection():
-    return {"success": True}
+    return {
+        "success": True,
+        "message": "debug mode"
+    }
 
 
 def paper_buy_spy():
-    return {"success": False}
+    return {
+        "success": False,
+        "message": "debug mode"
+    }
 
 
 def test_options():
-    return debug_trade_client()
+    return debug_option_files()
