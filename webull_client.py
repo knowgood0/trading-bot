@@ -1,7 +1,8 @@
 import os
+import uuid
+
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
-import uuid
 
 
 def get_trade_client():
@@ -53,6 +54,12 @@ def paper_buy_spy():
 
         account_id = os.environ.get("WEBULL_ACCOUNT_ID")
 
+        if not account_id:
+            return {
+                "success": False,
+                "error": "Missing WEBULL_ACCOUNT_ID"
+            }
+
         order_id = uuid.uuid4().hex
 
         order = [
@@ -66,7 +73,8 @@ def paper_buy_spy():
                 "quantity": "1",
                 "side": "BUY",
                 "time_in_force": "DAY",
-                "entrust_type": "QTY"
+                "entrust_type": "QTY",
+                "support_trading_session": "REGULAR"
             }
         ]
 
