@@ -97,7 +97,7 @@ def paper_buy_spy():
 def test_options():
     return {
         "success": False,
-        "message": "Options API discovery needed"
+        "message": "Option lookup not connected yet"
     }
 
 
@@ -107,8 +107,8 @@ def debug_trade_client():
 
         return {
             "success": True,
-            "available_methods": [
-                item for item in dir(trade_client)
+            "trade_instrument_methods": [
+                item for item in dir(trade_client.trade_instrument)
                 if not item.startswith("_")
             ]
         }
