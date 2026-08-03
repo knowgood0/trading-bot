@@ -1,5 +1,6 @@
 import os
 import uuid
+import inspect
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -107,10 +108,23 @@ def debug_trade_client():
 
         return {
             "success": True,
-            "trade_instrument_methods": [
-                item for item in dir(trade_client.trade_instrument)
-                if not item.startswith("_")
-            ]
+            "trade_instrument_methods": {
+                "get_trade_instrument_detail": str(
+                    inspect.signature(
+                        trade_client.trade_instrument.get_trade_instrument_detail
+                    )
+                ),
+                "get_trade_security_detail": str(
+                    inspect.signature(
+                        trade_client.trade_instrument.get_trade_security_detail
+                    )
+                ),
+                "get_tradeable_instruments": str(
+                    inspect.signature(
+                        trade_client.trade_instrument.get_tradeable_instruments
+                    )
+                )
+            }
         }
 
     except Exception as e:
