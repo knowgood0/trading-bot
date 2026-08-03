@@ -44,33 +44,53 @@ def test_webull_connection():
 def paper_buy_spy():
     return {
         "success": False,
-        "message": "Disabled during option debugging"
+        "message": "Disabled while building options"
     }
 
 
 def test_options():
+    return debug_option_models()
+
+
+def debug_option_models():
     try:
+        results = []
+
         files = glob.glob(
             "/opt/render/project/src/.venv/lib/python3.14/site-packages/webull/**/*.py",
             recursive=True
         )
 
-        results = []
-
         for file in files:
-            if (
-                "place_option_request.py" in file
-                or "order_operation_v2.py" in file
-            ):
-                with open(file, "r", errors="ignore") as f:
-                    results.append({
-                        "file": file,
-                        "content": f.read()[:8000]
-                    })
+            if "option" in file.lower():
+
+                try:
+                    with open(file, "r", errors="ignore") as f:
+                        text = f.read()
+
+                    matches = []
+
+                    for line in text.split("\n"):
+                        if (
+                            "strike" in line.lower()
+                            or "expiration" in line.lower()
+                            or "instrument_id" in line.lower()
+                            or "symbol" in line.lower()
+                        ):
+                            matches.append(line.strip())
+
+                    if matches:
+                        results.append({
+                            "file": file,
+                            "matches": matches[:25]
+                        })
+
+                except:
+                    pass
 
         return {
             "success": True,
-            "files": results
+            "results": results
         }
 
     except Exception as e:
