@@ -1,11 +1,14 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
 
-from webull_client import test_webull_connection, paper_buy_spy
+from webull_client import (
+    test_webull_connection,
+    paper_buy_spy,
+    test_options
+)
 
 app = Flask(__name__)
 
-# Bot state
 position = None
 trades = []
 
@@ -29,6 +32,11 @@ def buy_test():
     return jsonify(paper_buy_spy())
 
 
+@app.route("/options-test")
+def options_test():
+    return jsonify(test_options())
+
+
 @app.route("/tradingview-webhook", methods=["POST"])
 def tradingview_webhook():
     global position
@@ -41,14 +49,12 @@ def tradingview_webhook():
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # BUY signal
         if action == "BUY":
 
             if position is not None:
                 return jsonify({
                     "success": False,
-                    "message": "Already holding position",
-                    "position": position
+                    "message": "Already holding position"
                 })
 
             result = paper_buy_spy()
@@ -56,35 +62,27 @@ def tradingview_webhook():
             if result.get("success"):
                 position = {
                     "ticker": ticker,
-                    "entry_time": timestamp
+                    "time": timestamp
                 }
 
                 trades.append({
                     "action": "BUY",
                     "ticker": ticker,
-                    "time": timestamp,
-                    "result": result
+                    "time": timestamp
                 })
 
             return jsonify(result)
 
 
-        # SELL signal placeholder
         elif action == "SELL":
 
-            if position is None:
-                return jsonify({
-                    "success": False,
-                    "message": "No open position to sell"
-                })
+            position = None
 
             trades.append({
                 "action": "SELL",
                 "ticker": ticker,
                 "time": timestamp
             })
-
-            position = None
 
             return jsonify({
                 "success": True,
@@ -94,8 +92,7 @@ def tradingview_webhook():
 
         return jsonify({
             "success": False,
-            "message": "Unknown action",
-            "received": data
+            "message": "Unknown action"
         })
 
 
@@ -106,20 +103,17 @@ def tradingview_webhook():
         })
 
 
-# Simulates TradingView
 @app.route("/tradingview-test")
 def tradingview_test():
-
-    fake_signal = {
-        "action": "BUY",
-        "ticker": "SPY"
-    }
 
     result = paper_buy_spy()
 
     return jsonify({
         "test": "TradingView simulation",
-        "signal": fake_signal,
+        "signal": {
+            "action": "BUY",
+            "ticker": "SPY"
+        },
         "result": result
     })
 
