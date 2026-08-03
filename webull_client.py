@@ -29,16 +29,9 @@ def test_webull_connection():
 
         response = trade_client.account_v2.get_account_list()
 
-        if response.status_code == 200:
-            return {
-                "success": True,
-                "account": response.json()
-            }
-
         return {
-            "success": False,
-            "status": response.status_code,
-            "error": response.text
+            "success": response.status_code == 200,
+            "account": response.json()
         }
 
     except Exception as e:
@@ -54,12 +47,10 @@ def paper_buy_spy():
 
         account_id = os.environ.get("WEBULL_ACCOUNT_ID")
 
-        order_id = uuid.uuid4().hex
-
         order = [
             {
                 "combo_type": "NORMAL",
-                "client_order_id": order_id,
+                "client_order_id": uuid.uuid4().hex,
                 "symbol": "SPY",
                 "instrument_type": "EQUITY",
                 "market": "US",
@@ -89,16 +80,23 @@ def paper_buy_spy():
 
 
 def test_options():
+
     try:
         trade_client = get_trade_client()
 
-        instruments = trade_client.trade_instrument.get_tradeable_instruments(
-            page_size=20
+        # Example: SPY option lookup
+        response = trade_client.trade_instrument.get_trade_security_detail(
+            "SPY",
+            "US",
+            "OPTION",
+            "OPTION",
+            "600",
+            "2026-08-03"
         )
 
         return {
             "success": True,
-            "instruments": instruments.json()
+            "option_data": response.json()
         }
 
     except Exception as e:
@@ -109,20 +107,4 @@ def test_options():
 
 
 def debug_trade_client():
-    try:
-        trade_client = get_trade_client()
-
-        instruments = trade_client.trade_instrument.get_tradeable_instruments(
-            page_size=5
-        )
-
-        return {
-            "success": True,
-            "sample_instruments": instruments.json()
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+    return test_options()
