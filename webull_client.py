@@ -33,6 +33,7 @@ def get_clients():
 def test_webull_connection():
 
     try:
+
         trade_client, data_client, api_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
@@ -43,6 +44,7 @@ def test_webull_connection():
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -53,17 +55,23 @@ def test_options():
 
     try:
 
+        trade_client, data_client, api_client = get_clients()
+
         request = GetOptionContractsRequest()
 
         request.set_underlying_symbols("SPY")
         request.set_page_size(10)
 
+        request.add_header(
+            "category",
+            "US_OPTION"
+        )
+
+        response = api_client.get_response(request)
+
         return {
             "success": True,
-            "url": request.get_url(),
-            "query_params": request.get_query_params(),
-            "headers": request.get_headers(),
-            "endpoint": request.get_endpoint()
+            "response": response.json()
         }
 
     except Exception as e:
