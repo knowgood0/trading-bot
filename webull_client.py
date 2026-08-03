@@ -73,8 +73,7 @@ def paper_buy_spy():
                 "quantity": "1",
                 "side": "BUY",
                 "time_in_force": "DAY",
-                "entrust_type": "QTY",
-                "support_trading_session": "REGULAR"
+                "entrust_type": "QTY"
             }
         ]
 
