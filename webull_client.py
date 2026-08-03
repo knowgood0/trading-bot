@@ -57,27 +57,20 @@ def test_options():
 
 def debug_trade_client():
     try:
+        import webull
+
         trade_client = get_trade_client()
 
         return {
             "success": True,
 
-            "order_place_signature": str(
-                inspect.signature(
-                    trade_client.order_v3.place_order
-                )
-            ),
+            "webull_package": str(webull),
 
-            "preview_signature": str(
-                inspect.signature(
-                    trade_client.order_v3.preview_order
-                )
-            ),
+            "order_module": dir(trade_client.order_v3),
 
-            "order_client_methods": [
-                x for x in dir(trade_client.order_v3)
-                if not x.startswith("_")
-            ]
+            "trade_client_type": str(type(trade_client)),
+
+            "client_type": str(type(trade_client.order_v3.client))
         }
 
     except Exception as e:
