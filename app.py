@@ -1,13 +1,14 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
-from webull_client import 
-test_webull_connection
+from webull_client import test_webull_connection
+
 app = Flask(__name__)
 
 # Paper trading account
 balance = 10000
 position = None
 trades = []
+
 
 @app.route("/")
 def home():
@@ -17,6 +18,7 @@ def home():
         "open_position": position,
         "trades": trades
     }
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -63,12 +65,12 @@ def webhook():
         "position": position,
         "balance": balance
     })
-@app.route("/webull-test")
-def webull_test():
-    return jsonify(test_webull_connection()
+
 
 @app.route("/webull-test")
 def webull_test():
-    return jsonify(test_webull_connection()                   
+    return jsonify(test_webull_connection())
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
