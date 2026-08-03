@@ -29,16 +29,9 @@ def test_webull_connection():
 
         response = trade_client.account_v2.get_account_list()
 
-        if response.status_code == 200:
-            return {
-                "success": True,
-                "account": response.json()
-            }
-
         return {
-            "success": False,
-            "status": response.status_code,
-            "error": response.text
+            "success": True,
+            "account": response.json()
         }
 
     except Exception as e:
@@ -73,7 +66,8 @@ def paper_buy_spy():
                 "quantity": "1",
                 "side": "BUY",
                 "time_in_force": "DAY",
-                "entrust_type": "QTY"
+                "entrust_type": "QTY",
+                "support_trading_session": "CORE"
             }
         ]
 
