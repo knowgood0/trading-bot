@@ -107,3 +107,20 @@ def test_options():
             "success": False,
             "error": str(e)
         }
+def debug_trade_client():
+    try:
+        trade_client = get_trade_client()
+
+        return {
+            "success": True,
+            "methods": [
+                item for item in dir(trade_client)
+                if not item.startswith("_")
+            ]
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
