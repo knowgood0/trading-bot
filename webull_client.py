@@ -1,9 +1,10 @@
 import os
-import glob
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
+
+from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
 
 
 def get_clients():
@@ -24,14 +25,16 @@ def get_clients():
 
     return (
         TradeClient(api_client),
-        DataClient(api_client)
+        DataClient(api_client),
+        api_client
     )
 
 
 def test_webull_connection():
 
     try:
-        trade_client, data_client = get_clients()
+
+        trade_client, data_client, api_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -48,40 +51,21 @@ def test_webull_connection():
         }
 
 
-def find_option_examples():
+def test_option_contracts():
 
     try:
 
-        matches = []
+        trade_client, data_client, api_client = get_clients()
 
-        files = glob.glob(
-            "/opt/render/project/src/.venv/lib/python3.14/site-packages/webull/**/*.py",
-            recursive=True
-        )
+        request = GetOptionContractsRequest()
 
-        for file in files:
+        request.set_underlying_symbols("SPY")
 
-            if "option" in file.lower():
-
-                with open(file, "r", errors="ignore") as f:
-                    text = f.read()
-
-                for line in text.split("\n"):
-
-                    if (
-                        "new_orders" in line
-                        or "legs" in line
-                        or "option_symbol" in line
-                        or "instrument_type" in line
-                    ):
-                        matches.append({
-                            "file": file.split("/")[-1],
-                            "line": line.strip()
-                        })
+        response = api_client.get_response(request)
 
         return {
             "success": True,
-            "matches": matches[:100]
+            "response": response.json()
         }
 
     except Exception as e:
@@ -96,10 +80,10 @@ def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Waiting for option order setup"
+        "message": "Waiting for option symbol"
     }
 
 
 def test_options():
 
-    return find_option_examples()
+    return test_option_contracts()
