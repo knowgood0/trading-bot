@@ -44,14 +44,14 @@ def test_webull_connection():
 def paper_buy_spy():
     return {
         "success": False,
-        "message": "Temporary diagnostic mode"
+        "message": "Diagnostic mode"
     }
 
 
 def test_options():
     return {
         "success": False,
-        "message": "Temporary diagnostic mode"
+        "message": "Diagnostic mode"
     }
 
 
@@ -62,40 +62,22 @@ def debug_trade_client():
         return {
             "success": True,
 
-            "trade_client_modules": [
-                x for x in dir(trade_client)
-                if not x.startswith("_")
-            ],
+            "order_place_signature": str(
+                inspect.signature(
+                    trade_client.order_v3.place_order
+                )
+            ),
 
-            "order_methods": [
+            "preview_signature": str(
+                inspect.signature(
+                    trade_client.order_v3.preview_order
+                )
+            ),
+
+            "order_client_methods": [
                 x for x in dir(trade_client.order_v3)
                 if not x.startswith("_")
-            ],
-
-            "instrument_methods": [
-                x for x in dir(trade_client.trade_instrument)
-                if not x.startswith("_")
-            ],
-
-            "instrument_signatures": {
-                "detail": str(
-                    inspect.signature(
-                        trade_client.trade_instrument.get_trade_instrument_detail
-                    )
-                ),
-
-                "security": str(
-                    inspect.signature(
-                        trade_client.trade_instrument.get_trade_security_detail
-                    )
-                ),
-
-                "tradable": str(
-                    inspect.signature(
-                        trade_client.trade_instrument.get_tradeable_instruments
-                    )
-                )
-            }
+            ]
         }
 
     except Exception as e:
