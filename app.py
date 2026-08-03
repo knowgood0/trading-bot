@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
-from webull_client import test_webull_connection, paper_buy_spy
+
+from webull_client import test_webull_connection
 
 app = Flask(__name__)
 
-# Paper trading account
+# Paper trading account (local tracking for now)
 balance = 10000
 position = None
 trades = []
@@ -70,11 +71,8 @@ def webhook():
 @app.route("/webull-test")
 def webull_test():
     return jsonify(test_webull_connection())
-    
-@app.route("/buy-test")
-def buy_test():
-    return jsonify(paper_buy_spy())
-    
+
+
 @app.route("/buy-test")
 def buy_test():
     from webull_client import paper_buy_spy
