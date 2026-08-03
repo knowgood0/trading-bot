@@ -54,6 +54,12 @@ def paper_buy_spy():
 
         account_id = os.environ.get("WEBULL_ACCOUNT_ID")
 
+        if not account_id:
+            return {
+                "success": False,
+                "error": "Missing WEBULL_ACCOUNT_ID"
+            }
+
         order_id = uuid.uuid4().hex
 
         order = [
@@ -89,31 +95,19 @@ def paper_buy_spy():
 
 
 def test_options():
-    try:
-        trade_client = get_trade_client()
+    return {
+        "success": False,
+        "message": "Options API discovery needed"
+    }
 
-        # Try to retrieve SPY option chain
-        response = trade_client.option.get_option_chain(
-            "SPY"
-        )
 
-        return {
-            "success": True,
-            "options": response.json()
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
 def debug_trade_client():
     try:
         trade_client = get_trade_client()
 
         return {
             "success": True,
-            "methods": [
+            "available_methods": [
                 item for item in dir(trade_client)
                 if not item.startswith("_")
             ]
