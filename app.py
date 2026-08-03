@@ -3,8 +3,7 @@ from flask import Flask, jsonify
 from webull_client import (
     test_webull_connection,
     test_options,
-    paper_buy_spy,
-    debug_place_option_request
+    paper_buy_spy
 )
 
 
@@ -40,14 +39,6 @@ def buy_test():
 
     return jsonify(
         paper_buy_spy()
-    )
-
-
-@app.route("/debug-option-order")
-def debug_option_order():
-
-    return jsonify(
-        debug_place_option_request()
     )
 
 
