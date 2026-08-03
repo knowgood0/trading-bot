@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
 
-from webull_client import test_webull_connection
+from webull_client import test_webull_connection, paper_buy_spy
 
 app = Flask(__name__)
 
-# Paper trading account (local tracking for now)
+# Simple test tracking
 balance = 10000
 position = None
 trades = []
@@ -21,53 +21,6 @@ def home():
     }
 
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    global balance, position
-
-    data = request.json
-
-    action = data.get("action")
-    ticker = data.get("ticker", "SPY")
-    price = float(data.get("price", 0))
-
-    time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    if action == "BUY" and position is None:
-        position = {
-            "ticker": ticker,
-            "entry": price,
-            "time": time
-        }
-
-        trades.append({
-            "type": "BUY",
-            "price": price,
-            "time": time
-        })
-
-    elif action == "SELL" and position is not None:
-        profit = price - position["entry"]
-
-        balance += profit * 100
-
-        trades.append({
-            "type": "SELL",
-            "entry": position["entry"],
-            "exit": price,
-            "profit": profit * 100,
-            "time": time
-        })
-
-        position = None
-
-    return jsonify({
-        "received": True,
-        "position": position,
-        "balance": balance
-    })
-
-
 @app.route("/webull-test")
 def webull_test():
     return jsonify(test_webull_connection())
@@ -75,8 +28,8 @@ def webull_test():
 
 @app.route("/buy-test")
 def buy_test():
-    from webull_client import paper_buy_spy
     return jsonify(paper_buy_spy())
+
 
 @app.route("/tradingview-webhook", methods=["POST"])
 def tradingview_webhook():
@@ -92,7 +45,7 @@ def tradingview_webhook():
         return jsonify({
             "success": False,
             "message": "No valid action received",
-            "data": data
+            "received": data
         })
 
     except Exception as e:
@@ -100,6 +53,27 @@ def tradingview_webhook():
             "success": False,
             "error": str(e)
         })
+
+
+# This simulates TradingView sending a BUY alert
+@app.route("/tradingview-test")
+def tradingview_test():
+    fake_signal = {
+        "action": "BUY"
+    }
+
+    if fake_signal["action"] == "BUY":
+        result = paper_buy_spy()
+        return jsonify({
+            "test": "TradingView simulation",
+            "signal": fake_signal,
+            "result": result
+        })
+
+    return jsonify({
+        "success": False,
+        "message": "No signal"
+    })
 
 
 if __name__ == "__main__":
