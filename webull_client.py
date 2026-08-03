@@ -1,13 +1,11 @@
 import os
+import uuid
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
-from webull.data.data_client import DataClient
-
-from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
 
 
-def get_clients():
+def get_trade_client():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
@@ -23,18 +21,14 @@ def get_clients():
         "api.sandbox.webull.com"
     )
 
-    return (
-        TradeClient(api_client),
-        DataClient(api_client),
-        api_client
-    )
+    return TradeClient(api_client)
 
 
 def test_webull_connection():
 
     try:
 
-        trade_client, data_client, api_client = get_clients()
+        trade_client = get_trade_client()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -51,28 +45,60 @@ def test_webull_connection():
         }
 
 
-def test_options():
+def test_option_order():
 
     try:
 
-        trade_client, data_client, api_client = get_clients()
+        trade_client = get_trade_client()
 
-        request = GetOptionContractsRequest()
-
-        request.set_underlying_symbols("SPY")
-        request.set_page_size(10)
-
-        request.add_header(
-            "category",
-            "US_OPTION"
+        account_id = os.environ.get(
+            "WEBULL_ACCOUNT_ID"
         )
 
-        response = api_client.get_response(request)
+        if not account_id:
+
+            return {
+                "success": False,
+                "error": "Missing WEBULL_ACCOUNT_ID"
+            }
+
+
+        client_order_id = uuid.uuid4().hex
+
+
+        option_order = [
+            {
+                "combo_type": "NORMAL",
+                "client_order_id": client_order_id,
+                "order_type": "MARKET",
+                "quantity": "1",
+                "side": "BUY",
+                "time_in_force": "DAY",
+                "entrust_type": "QTY",
+                "legs": [
+                    {
+                        "symbol": "SPY260821C00600000",
+                        "instrument_type": "OPTION",
+                        "market": "US",
+                        "side": "BUY",
+                        "quantity": "1"
+                    }
+                ]
+            }
+        ]
+
+
+        response = trade_client.order_v2.place_option(
+            account_id,
+            option_order
+        )
+
 
         return {
             "success": True,
             "response": response.json()
         }
+
 
     except Exception as e:
 
@@ -80,11 +106,3 @@ def test_options():
             "success": False,
             "error": str(e)
         }
-
-
-def paper_buy_spy():
-
-    return {
-        "success": False,
-        "message": "Waiting for option contract selection"
-    }
