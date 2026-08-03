@@ -1,5 +1,5 @@
 import os
-import inspect
+import glob
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -57,20 +57,28 @@ def test_options():
 
 def debug_trade_client():
     try:
-        import webull
+        files = glob.glob(
+            "/opt/render/project/src/.venv/lib/python3.14/site-packages/webull/**/*.py",
+            recursive=True
+        )
 
-        trade_client = get_trade_client()
+        option_files = []
+
+        for file in files:
+            try:
+                with open(file, "r", errors="ignore") as f:
+                    text = f.read().lower()
+
+                    if "option" in text:
+                        option_files.append(file)
+
+            except:
+                pass
 
         return {
             "success": True,
-
-            "webull_package": str(webull),
-
-            "order_module": dir(trade_client.order_v3),
-
-            "trade_client_type": str(type(trade_client)),
-
-            "client_type": str(type(trade_client.order_v3.client))
+            "option_related_files": option_files[:50],
+            "count": len(option_files)
         }
 
     except Exception as e:
