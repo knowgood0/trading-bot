@@ -74,6 +74,12 @@ def webull_test():
 @app.route("/buy-test")
 def buy_test():
     return jsonify(paper_buy_spy())
+    
+@app.route("/buy-test")
+def buy_test():
+    from webull_client import paper_buy_spy
+    return jsonify(paper_buy_spy())
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
