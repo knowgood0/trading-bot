@@ -1,6 +1,5 @@
 import os
 import uuid
-import inspect
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -55,12 +54,6 @@ def paper_buy_spy():
 
         account_id = os.environ.get("WEBULL_ACCOUNT_ID")
 
-        if not account_id:
-            return {
-                "success": False,
-                "error": "Missing WEBULL_ACCOUNT_ID"
-            }
-
         order_id = uuid.uuid4().hex
 
         order = [
@@ -96,35 +89,36 @@ def paper_buy_spy():
 
 
 def test_options():
-    return {
-        "success": False,
-        "message": "Option lookup not connected yet"
-    }
+    try:
+        trade_client = get_trade_client()
+
+        instruments = trade_client.trade_instrument.get_tradeable_instruments(
+            page_size=20
+        )
+
+        return {
+            "success": True,
+            "instruments": instruments.json()
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 def debug_trade_client():
     try:
         trade_client = get_trade_client()
 
+        instruments = trade_client.trade_instrument.get_tradeable_instruments(
+            page_size=5
+        )
+
         return {
             "success": True,
-            "trade_instrument_methods": {
-                "get_trade_instrument_detail": str(
-                    inspect.signature(
-                        trade_client.trade_instrument.get_trade_instrument_detail
-                    )
-                ),
-                "get_trade_security_detail": str(
-                    inspect.signature(
-                        trade_client.trade_instrument.get_trade_security_detail
-                    )
-                ),
-                "get_tradeable_instruments": str(
-                    inspect.signature(
-                        trade_client.trade_instrument.get_tradeable_instruments
-                    )
-                )
-            }
+            "sample_instruments": instruments.json()
         }
 
     except Exception as e:
