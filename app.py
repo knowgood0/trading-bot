@@ -2,8 +2,8 @@ from flask import Flask, jsonify
 
 from webull_client import (
     test_webull_connection,
-    paper_buy_spy,
-    test_options
+    test_options,
+    paper_buy_spy
 )
 
 
