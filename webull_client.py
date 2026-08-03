@@ -33,7 +33,6 @@ def get_clients():
 def test_webull_connection():
 
     try:
-
         trade_client, data_client, api_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
@@ -44,28 +43,27 @@ def test_webull_connection():
         }
 
     except Exception as e:
-
         return {
             "success": False,
             "error": str(e)
         }
 
 
-def test_option_contracts():
+def test_options():
 
     try:
 
-        trade_client, data_client, api_client = get_clients()
-
         request = GetOptionContractsRequest()
-
-        request.set_underlying_symbols("SPY")
-
-        response = api_client.get_response(request)
 
         return {
             "success": True,
-            "response": response.json()
+            "methods": [
+                x for x in dir(request)
+                if not x.startswith("_")
+            ],
+            "query_params": request.get_query_params(),
+            "endpoint": request.get_endpoint(),
+            "version": request.get_version()
         }
 
     except Exception as e:
@@ -80,10 +78,5 @@ def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Waiting for option symbol"
+        "message": "Waiting for option contract lookup"
     }
-
-
-def test_options():
-
-    return test_option_contracts()
