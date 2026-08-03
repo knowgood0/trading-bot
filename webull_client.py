@@ -3,6 +3,7 @@ import os
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
+from webull.trade.request.v2.place_option_request import PlaceOptionRequest
 
 
 def get_clients():
@@ -47,6 +48,14 @@ def test_webull_connection():
         }
 
 
+def paper_buy_spy():
+
+    return {
+        "success": False,
+        "message": "Waiting for option order setup"
+    }
+
+
 def test_options():
 
     try:
@@ -54,11 +63,11 @@ def test_options():
 
         return {
             "success": True,
-            "data_client_modules": [
+            "data_modules": [
                 x for x in dir(data_client)
                 if not x.startswith("_")
             ],
-            "trade_client_modules": [
+            "trade_modules": [
                 x for x in dir(trade_client)
                 if not x.startswith("_")
             ]
@@ -72,9 +81,24 @@ def test_options():
         }
 
 
-def paper_buy_spy():
+def debug_place_option_request():
 
-    return {
-        "success": False,
-        "message": "Waiting for option contract lookup"
-    }
+    try:
+
+        request = PlaceOptionRequest()
+
+        return {
+            "success": True,
+            "methods": [
+                x for x in dir(request)
+                if not x.startswith("_")
+            ],
+            "attributes": request.__dict__
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
