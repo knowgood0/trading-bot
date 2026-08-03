@@ -4,8 +4,7 @@ from datetime import datetime
 from webull_client import (
     test_webull_connection,
     paper_buy_spy,
-    test_options,
-    debug_trade_client
+    test_options
 )
 
 app = Flask(__name__)
