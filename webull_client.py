@@ -7,6 +7,16 @@ from webull.data.data_client import DataClient
 from webull.data.common.category import Category
 
 
+paper_trade = {
+    "open": False,
+    "contract": None,
+    "entry_price": None,
+    "entry_time": None,
+    "exit_price": None,
+    "profit_loss": None
+}
+
+
 def get_clients():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
@@ -84,44 +94,25 @@ def extract_spy_price():
     result = get_spy_price()
 
     if not result.get("success"):
-
         return None
 
-
     data = result.get("data")
-
 
     try:
 
         if isinstance(data, list) and len(data) > 0:
 
-            quote = data[0]
-
-            if "price" in quote:
-
-                return float(
-                    quote["price"]
-                )
-
-            if "close" in quote:
-
-                return float(
-                    quote["close"]
-                )
+            return float(data[0]["price"])
 
 
         if isinstance(data, dict):
 
-            if "price" in data:
-
-                return float(
-                    data["price"]
-                )
+            return float(data["price"])
 
 
     except Exception:
 
-        pass
+        return None
 
 
     return None
@@ -134,9 +125,7 @@ def get_option_contracts(option_type="CALL"):
 
         _, data_client = get_clients()
 
-
         today = datetime.now()
-
 
         start_date = (
             today + timedelta(days=20)
@@ -190,159 +179,91 @@ def select_contract(option_type="CALL"):
         if isinstance(contracts, dict) and "error" in contracts:
 
             return {
-
                 "success": False,
-
                 "error": contracts["error"]
-
             }
 
 
         spy_price = extract_spy_price()
 
 
-        valid_contracts = []
+        valid = []
 
 
         for contract in contracts:
 
             if (
-
                 contract.get("def_type") == "STANDARD"
-
-                and
-
-                contract.get("style") == "AMERICAN"
-
-                and
-
-                contract.get("option_type") == option_type
-
-                and
-
-                contract.get("tradable_status") == "OC"
-
+                and contract.get("style") == "AMERICAN"
+                and contract.get("tradable_status") == "OC"
+                and contract.get("option_type") == option_type
             ):
 
-                valid_contracts.append(contract)
+                valid.append(contract)
 
 
-
-        if not valid_contracts:
+        if not valid:
 
             return {
-
                 "success": False,
-
                 "error": "No valid contracts found"
-
             }
-
 
 
         if spy_price:
 
-
-            valid_contracts.sort(
-
+            valid.sort(
                 key=lambda x:
-
                 abs(
-
-                    float(x.get("strike_price"))
-
-                    -
-
-                    spy_price
-
+                    float(x["strike_price"]) - spy_price
                 )
-
             )
 
 
-        else:
-
-            valid_contracts.sort(
-
-                key=lambda x:
-
-                float(x.get("strike_price"))
-
-            )
-
-
-
-        selected = valid_contracts[0]
+        selected = valid[0]
 
 
         return {
-
             "success": True,
-
             "spy_price": spy_price,
-
             "selected_contract": {
-
                 "symbol": selected.get("symbol"),
-
                 "type": selected.get("option_type"),
-
                 "strike": selected.get("strike_price"),
-
                 "expiration": selected.get("expiration_date"),
-
                 "raw": selected
-
             }
-
         }
 
 
     except Exception as e:
 
         return {
-
             "success": False,
-
             "error": str(e)
-
         }
-
-
-
-def get_option_price(option_symbol):
+        def get_option_price(option_symbol):
 
     try:
 
         _, data_client = get_clients()
 
-
         response = data_client.option_market_data.get_option_snapshot(
-
             option_symbol,
-
             Category.US_OPTION.name
-
         )
 
-
         return {
-
             "success": True,
-
             "data": response.json()
-
         }
 
 
     except Exception as e:
 
         return {
-
             "success": False,
-
             "error": str(e)
-
         }
 
 
@@ -352,7 +273,6 @@ def debug_option_chain():
     try:
 
         contracts = get_option_contracts()
-
 
         return {
 
@@ -410,12 +330,155 @@ def debug_market_data():
 
 
 
-def paper_buy_spy():
+def paper_buy_spy(option_type="CALL"):
+
+    global paper_trade
+
+
+    if paper_trade["open"]:
+
+        return {
+
+            "success": False,
+
+            "error": "A paper trade is already open",
+
+            "trade": paper_trade
+
+        }
+
+
+
+    contract_result = select_contract(option_type)
+
+
+    if not contract_result.get("success"):
+
+        return contract_result
+
+
+
+    spy_price = contract_result.get("spy_price")
+
+
+    paper_trade = {
+
+        "open": True,
+
+        "contract": contract_result["selected_contract"],
+
+        "entry_price": spy_price,
+
+        "entry_time": datetime.now().isoformat(),
+
+        "exit_price": None,
+
+        "profit_loss": None
+
+    }
+
 
     return {
 
         "success": True,
 
-        "message": "Paper order not connected yet"
+        "message": "Paper BUY executed",
+
+        "trade": paper_trade
 
     }
+
+
+
+def paper_sell_spy():
+
+    global paper_trade
+
+
+    if not paper_trade["open"]:
+
+        return {
+
+            "success": False,
+
+            "error": "No open paper trade"
+
+        }
+
+
+
+    current_price = extract_spy_price()
+
+
+    if current_price is None:
+
+        return {
+
+            "success": False,
+
+            "error": "Unable to get current SPY price"
+
+        }
+
+
+
+    entry = paper_trade["entry_price"]
+
+
+    profit_loss = (
+
+        (current_price - entry)
+
+        /
+
+        entry
+
+    ) * 100
+
+
+
+    paper_trade["exit_price"] = current_price
+
+    paper_trade["profit_loss"] = round(
+        profit_loss,
+        2
+    )
+
+    paper_trade["open"] = False
+
+
+
+    return {
+
+        "success": True,
+
+        "message": "Paper SELL executed",
+
+        "trade": paper_trade
+
+    }
+
+
+
+def paper_trade_status():
+
+    return {
+
+        "success": True,
+
+        "trade": paper_trade
+
+    }
+
+
+
+def test_options():
+
+    return {
+
+        "success": True,
+
+        "message": "Options system online"
+
+    }
+
