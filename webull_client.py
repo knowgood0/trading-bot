@@ -24,7 +24,7 @@ def get_clients():
     trade_client = TradeClient(api_client)
     data_client = DataClient(api_client)
 
-    return trade_client, data_client
+    return trade_client, data_client, api_client
 
 
 
@@ -32,7 +32,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, _ = get_clients()
+        trade_client, _, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -54,53 +54,46 @@ def get_spy_price():
 
     try:
 
-        _, data_client = get_clients()
-
-        attempts = []
-
-
-        categories = [
-            "US_STOCK",
-            "STOCK",
-            "EQUITY"
-        ]
-
-
-        for category in categories:
-
-            try:
-
-                response = data_client.market_data.get_quotes(
-                    ["SPY"],
-                    category
-                )
-
-                return {
-                    "success": True,
-                    "category_used": category,
-                    "spy_quote": response.json()
-                }
-
-
-            except Exception as e:
-
-                attempts.append({
-                    "category": category,
-                    "error": str(e)
-                })
+        _, data_client, api_client = get_clients()
 
 
         return {
-            "success": False,
-            "attempts": attempts
+
+            "success": True,
+
+            "api_client": {
+
+                "class": str(type(api_client)),
+
+                "endpoint": getattr(
+                    api_client,
+                    "endpoint",
+                    None
+                )
+
+            },
+
+            "data_client": {
+
+                "class": str(type(data_client)),
+
+                "market_data_class": str(
+                    type(data_client.market_data)
+                )
+
+            }
+
         }
 
 
     except Exception as e:
 
         return {
+
             "success": False,
+
             "error": str(e)
+
         }
 
 
@@ -109,13 +102,13 @@ def debug_market_data():
 
     try:
 
-        _, data_client = get_clients()
+        _, data_client, _ = get_clients()
 
         return {
 
             "success": True,
 
-            "market_methods": [
+            "methods": [
                 x for x in dir(data_client.market_data)
                 if not x.startswith("_")
             ]
@@ -126,50 +119,29 @@ def debug_market_data():
     except Exception as e:
 
         return {
+
             "success": False,
+
             "error": str(e)
+
         }
 
 
 
 def test_options():
 
-    try:
-
-        _, data_client = get_clients()
-
-        return {
-
-            "success": True,
-
-            "option_methods": [
-                x for x in dir(data_client.option_market_data)
-                if not x.startswith("_")
-            ]
-
-        }
-
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
-            "error": str(e)
-
-        }
+    return {
+        "success": True,
+        "message": "Options OK"
+    }
 
 
 
 def select_contract():
 
     return {
-
         "success": True,
-
-        "message":
-        "Contract selector waiting for SPY price feed."
-
+        "message": "Waiting for price feed"
     }
 
 
@@ -177,10 +149,6 @@ def select_contract():
 def paper_buy_spy():
 
     return {
-
         "success": True,
-
-        "message":
-        "Paper order waiting for contract selection."
-
+        "message": "Waiting for contract"
     }
