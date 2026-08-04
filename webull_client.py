@@ -53,6 +53,82 @@ def test_webull_connection():
 
 
 
+def get_spy_price():
+
+    try:
+
+        _, data_client = get_clients()
+
+        response = data_client.market_data.get_snapshot(
+            "SPY",
+            Category.US_STOCK.name
+        )
+
+        data = response.json()
+
+
+        return {
+
+            "success": True,
+
+            "data": data
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
+def extract_spy_price():
+
+    result = get_spy_price()
+
+
+    if not result.get("success"):
+
+        return None
+
+
+    data = result.get("data")
+
+
+    try:
+
+        if isinstance(data, dict):
+
+            if "close" in data:
+
+                return float(data["close"])
+
+
+            if "price" in data:
+
+                return float(data["price"])
+
+
+            if "last_price" in data:
+
+                return float(data["last_price"])
+
+
+    except:
+
+        pass
+
+
+    return None
+
+
+
 def get_option_contracts(option_type="CALL"):
 
     try:
@@ -102,84 +178,6 @@ def get_option_contracts(option_type="CALL"):
     except Exception as e:
 
         return {
-            "error": str(e)
-        }
-
-
-
-def debug_option_chain():
-
-    try:
-
-        contracts = get_option_contracts()
-
-
-        if isinstance(contracts, dict) and "error" in contracts:
-
-            return {
-
-                "success": False,
-
-                "error": contracts["error"]
-
-            }
-
-
-
-        if not isinstance(contracts, list):
-
-            return {
-
-                "success": False,
-
-                "data": contracts
-
-            }
-
-
-
-        expirations = sorted(
-            list(
-                set(
-                    c.get("expiration_date")
-                    for c in contracts
-                    if c.get("expiration_date")
-                )
-            )
-        )
-
-
-        strikes = sorted(
-            list(
-                set(
-                    c.get("strike_price")
-                    for c in contracts
-                    if c.get("strike_price")
-                )
-            )
-        )
-
-
-        return {
-
-            "success": True,
-
-            "total_contracts": len(contracts),
-
-            "expirations": expirations,
-
-            "strike_count": len(strikes),
-
-            "sample_contracts": contracts[:10]
-
-        }
-
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
 
             "error": str(e)
 
@@ -206,22 +204,11 @@ def select_contract(option_type="CALL"):
 
 
 
-        if not isinstance(contracts, list):
-
-            return {
-
-                "success": False,
-
-                "error": "Unexpected response format",
-
-                "data": contracts
-
-            }
+        spy_price = extract_spy_price()
 
 
 
         valid_contracts = []
-
 
 
         for contract in contracts:
@@ -254,54 +241,38 @@ def select_contract(option_type="CALL"):
 
                 "success": False,
 
-                "error": "No valid contracts found",
-
-                "total_received": len(contracts)
+                "error": "No valid contracts found"
 
             }
 
 
 
-        # Sort expiration closest to 45 days
-
-        target_days = 45
-
-        today = datetime.now()
+        if spy_price:
 
 
+            def strike_distance(contract):
 
-        def expiration_score(contract):
+                return abs(
 
-            try:
+                    float(contract["strike_price"])
 
-                expiration = datetime.strptime(
+                    -
 
-                    contract.get("expiration_date"),
-
-                    "%Y-%m-%d"
+                    spy_price
 
                 )
 
 
-                days = (
-
-                    expiration - today
-
-                ).days
+            valid_contracts.sort(
+                key=strike_distance
+            )
 
 
-                return abs(days - target_days)
+        else:
 
-
-            except:
-
-                return 9999
-
-
-
-        valid_contracts.sort(
-            key=expiration_score
-        )
+            valid_contracts.sort(
+                key=lambda x: x.get("strike_price")
+            )
 
 
 
@@ -312,6 +283,8 @@ def select_contract(option_type="CALL"):
         return {
 
             "success": True,
+
+            "spy_price": spy_price,
 
             "selected_contract": {
 
@@ -329,6 +302,35 @@ def select_contract(option_type="CALL"):
 
         }
 
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
+def debug_option_chain():
+
+    try:
+
+        contracts = get_option_contracts()
+
+
+        return {
+
+            "success": True,
+
+            "total_contracts": len(contracts),
+
+            "sample_contracts": contracts[:10]
+
+        }
 
 
     except Exception as e:
@@ -361,7 +363,7 @@ def test_options():
 
         "success": True,
 
-        "message": "Option contract selector ready"
+        "message": "Option selector ready"
 
     }
 
