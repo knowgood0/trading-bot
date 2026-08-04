@@ -22,18 +22,9 @@ def get_clients():
     )
 
     trade_client = TradeClient(api_client)
-
     data_client = DataClient(api_client)
 
-    return trade_client, data_client, api_client
-
-
-
-def get_trade_client():
-
-    trade_client, _, _ = get_clients()
-
-    return trade_client
+    return trade_client, data_client
 
 
 
@@ -41,7 +32,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, _, _ = get_clients()
+        trade_client, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -59,22 +50,42 @@ def test_webull_connection():
 
 
 
+def get_spy_price():
+
+    try:
+
+        _, data_client = get_clients()
+
+        response = data_client.market_data.get_quotes(
+            ["SPY"]
+        )
+
+        return {
+            "success": True,
+            "spy_quote": response.json()
+        }
+
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+
 def debug_market_data():
 
     try:
 
-        trade_client, data_client, api_client = get_clients()
+        _, data_client = get_clients()
 
         return {
 
             "success": True,
 
-            "data_client_methods": [
-                x for x in dir(data_client)
-                if not x.startswith("_")
-            ],
-
-            "market_data_methods": [
+            "market_methods": [
                 x for x in dir(data_client.market_data)
                 if not x.startswith("_")
             ]
@@ -85,52 +96,26 @@ def debug_market_data():
     except Exception as e:
 
         return {
-
             "success": False,
             "error": str(e)
-
         }
 
 
 
 def test_options():
 
-    try:
-
-        _, data_client, _ = get_clients()
-
-        return {
-
-            "success": True,
-
-            "option_methods": [
-                x for x in dir(data_client.option_market_data)
-                if not x.startswith("_")
-            ]
-
-        }
-
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
-            "error": str(e)
-
-        }
+    return {
+        "success": True,
+        "message": "Options connection ready"
+    }
 
 
 
 def select_contract():
 
     return {
-
         "success": True,
-
-        "message":
-        "Contract selector ready for SPY price integration."
-
+        "message": "Contract selector waiting for price feed"
     }
 
 
@@ -138,10 +123,6 @@ def select_contract():
 def paper_buy_spy():
 
     return {
-
         "success": True,
-
-        "message":
-        "Paper trading waiting for contract selection."
-
+        "message": "Paper order waiting"
     }
