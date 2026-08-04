@@ -1,4 +1,5 @@
 import os
+import inspect
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -30,24 +31,37 @@ def get_clients():
 
 
 
-def test_webull_connection():
+def debug_option_method():
 
     try:
 
-        trade_client, _ = get_clients()
+        _, data_client = get_clients()
 
-        response = trade_client.account_v2.get_account_list()
+        method = data_client.instrument.get_option_contracts
 
         return {
+
             "success": True,
-            "account": response.json()
+
+            "signature": str(
+                inspect.signature(method)
+            ),
+
+            "doc": str(
+                inspect.getdoc(method)
+            )
+
         }
+
 
     except Exception as e:
 
         return {
+
             "success": False,
+
             "error": str(e)
+
         }
 
 
@@ -73,168 +87,31 @@ def get_option_contracts(option_type="CALL"):
 
 
 
-def debug_option_chain():
-
-    try:
-
-        contracts = get_option_contracts()
-
-
-        if isinstance(contracts, dict) and "error" in contracts:
-
-            return {
-                "success": False,
-                "error": contracts["error"]
-            }
-
-
-        if not isinstance(contracts, list):
-
-            return {
-                "success": False,
-                "error": "Unexpected response format",
-                "data": contracts
-            }
-
-
-        expirations = sorted(
-            list(
-                set(
-                    contract.get("expiration_date")
-                    for contract in contracts
-                    if contract.get("expiration_date")
-                )
-            )
-        )
-
-
-        strikes = sorted(
-            list(
-                set(
-                    contract.get("strike_price")
-                    for contract in contracts
-                    if contract.get("strike_price")
-                )
-            )
-        )
-
-
-        samples = contracts[:10]
-
-
-        return {
-
-            "success": True,
-
-            "total_contracts": len(contracts),
-
-            "expiration_count": len(expirations),
-
-            "available_expirations": expirations[:50],
-
-            "strike_count": len(strikes),
-
-            "sample_strikes": strikes[:50],
-
-            "sample_contracts": samples
-
-        }
-
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
-
-            "error": str(e)
-
-        }
-
-
-
 def select_contract(option_type="CALL"):
 
+    return {
+
+        "success": False,
+
+        "message": "Selector paused while inspecting SDK"
+
+    }
+
+
+
+def test_webull_connection():
+
     try:
 
-        contracts = get_option_contracts(option_type)
+        trade_client, _ = get_clients()
 
-
-        if isinstance(contracts, dict) and "error" in contracts:
-
-            return {
-                "success": False,
-                "error": contracts["error"]
-            }
-
-
-        if not isinstance(contracts, list):
-
-            return {
-                "success": False,
-                "error": "Unexpected contract format"
-            }
-
-
-        valid_contracts = []
-
-
-        for contract in contracts:
-
-            if (
-
-                contract.get("def_type") == "STANDARD"
-
-                and
-
-                contract.get("style") == "AMERICAN"
-
-                and
-
-                contract.get("option_type") == option_type
-
-                and
-
-                contract.get("tradable_status") == "OC"
-
-            ):
-
-                valid_contracts.append(contract)
-
-
-
-        if not valid_contracts:
-
-            return {
-
-                "success": False,
-
-                "error": "No valid contracts found"
-
-            }
-
-
-
-        selected = valid_contracts[0]
-
+        response = trade_client.account_v2.get_account_list()
 
         return {
 
             "success": True,
 
-            "selected_contract": {
-
-                "symbol": selected.get("symbol"),
-
-                "type": selected.get("option_type"),
-
-                "strike": selected.get("strike_price"),
-
-                "expiration": selected.get("expiration_date"),
-
-                "raw": selected
-
-            }
+            "account": response.json()
 
         }
 
@@ -257,7 +134,7 @@ def test_options():
 
         "success": True,
 
-        "message": "Option contract selector ready"
+        "message": "Option test active"
 
     }
 
