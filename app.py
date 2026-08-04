@@ -6,6 +6,7 @@ from webull_client import (
     select_contract,
     debug_market_data,
     debug_option_chain,
+    debug_option_method,
     paper_buy_spy
 )
 
@@ -64,6 +65,15 @@ def debug_option_chain_test():
 
     return jsonify(
         debug_option_chain()
+    )
+
+
+
+@app.route("/debug-option-method")
+def debug_option_method_test():
+
+    return jsonify(
+        debug_option_method()
     )
 
 
