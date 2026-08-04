@@ -4,7 +4,8 @@ from webull_client import (
     test_webull_connection,
     test_options,
     select_contract,
-    paper_buy_spy
+    paper_buy_spy,
+    debug_market_data
 )
 
 
@@ -48,6 +49,14 @@ def buy_test():
 
     return jsonify(
         paper_buy_spy()
+    )
+
+
+@app.route("/debug-market-data")
+def market_debug():
+
+    return jsonify(
+        debug_market_data()
     )
 
 
