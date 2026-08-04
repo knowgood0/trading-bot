@@ -1,11 +1,12 @@
 import os
+from datetime import datetime, timedelta
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
 
 
-def get_api_client():
+def get_clients():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
@@ -21,7 +22,11 @@ def get_api_client():
         "api.sandbox.webull.com"
     )
 
-    return api_client
+    trade_client = TradeClient(api_client)
+
+    data_client = DataClient(api_client)
+
+    return trade_client, data_client
 
 
 
@@ -29,9 +34,7 @@ def test_webull_connection():
 
     try:
 
-        api_client = get_api_client()
-
-        trade_client = TradeClient(api_client)
+        trade_client, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -50,34 +53,136 @@ def test_webull_connection():
 
 
 
-def debug_market_data():
+def get_option_contracts(option_type="CALL"):
 
     try:
 
-        api_client = get_api_client()
+        _, data_client = get_clients()
 
-        data_client = DataClient(api_client)
+
+        today = datetime.now()
+
+
+        start_date = (
+            today + timedelta(days=20)
+        ).strftime("%Y-%m-%d")
+
+
+        end_date = (
+            today + timedelta(days=60)
+        ).strftime("%Y-%m-%d")
+
+
+
+        response = data_client.instrument.get_option_contracts(
+
+            underlying_symbols="SPY",
+
+            category="US_OPTION",
+
+            status="LISTING",
+
+            start_date=start_date,
+
+            end_date=end_date,
+
+            option_type=option_type,
+
+            page_size=100
+
+        )
+
+
+        return response.json()
+
+
+
+    except Exception as e:
+
+        return {
+
+            "error": str(e)
+
+        }
+
+
+
+def select_contract(option_type="CALL"):
+
+    try:
+
+        contracts = get_option_contracts(option_type)
+
+
+        if "options" not in contracts:
+
+            return {
+
+                "success": False,
+
+                "error": contracts
+
+            }
+
+
+
+        valid_contracts = []
+
+
+        for contract in contracts["options"]:
+
+            if (
+
+                contract.get("def_type") == "STANDARD"
+
+                and
+
+                contract.get("style") == "AMERICAN"
+
+                and
+
+                contract.get("tradable_status") == "OC"
+
+            ):
+
+                valid_contracts.append(contract)
+
+
+
+        if not valid_contracts:
+
+            return {
+
+                "success": False,
+
+                "error": "No valid contracts found"
+
+            }
+
+
+
+        selected = valid_contracts[0]
+
+
 
         return {
 
             "success": True,
 
-            "data_client_methods": [
-                x for x in dir(data_client)
-                if not x.startswith("_")
-            ],
+            "selected_contract": {
 
-            "data_submodules": [
-                x for x in dir(data_client)
-                if not x.startswith("_")
-            ],
+                "symbol": selected.get("symbol"),
 
-            "market_data_methods": [
-                x for x in dir(data_client.market_data)
-                if not x.startswith("_")
-            ]
+                "type": selected.get("option_type"),
+
+                "strike": selected.get("strike_price"),
+
+                "expiration": selected.get("expiration_date")
+
+            }
 
         }
+
 
 
     except Exception as e:
@@ -98,21 +203,42 @@ def test_options():
 
         "success": True,
 
-        "message": "Option testing active"
+        "message": "Option contract selector ready"
 
     }
 
 
 
-def select_contract(option_type="CALL"):
+def debug_market_data():
 
-    return {
+    try:
 
-        "success": False,
+        _, data_client = get_clients()
 
-        "error": "Waiting for option contract API connection"
+        return {
 
-    }
+            "success": True,
+
+            "instrument_methods": [
+
+                x for x in dir(data_client.instrument)
+
+                if not x.startswith("_")
+
+            ]
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
 
 
 
@@ -122,6 +248,6 @@ def paper_buy_spy():
 
         "success": True,
 
-        "message": "Paper trading placeholder"
+        "message": "Paper order not connected yet"
 
     }
