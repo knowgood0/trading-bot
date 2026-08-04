@@ -1,11 +1,13 @@
 import os
+from datetime import datetime, timedelta
+import uuid
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
 
 
-def create_api_client():
+def get_clients():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
@@ -16,25 +18,15 @@ def create_api_client():
         "us"
     )
 
-    # Use live Webull API endpoint for market data
     api_client.add_endpoint(
         "us",
-        "api.webull.com"
+        "api.sandbox.webull.com"
     )
 
-    return api_client
-
-
-
-def get_clients():
-
-    api_client = create_api_client()
-
     trade_client = TradeClient(api_client)
-
     data_client = DataClient(api_client)
 
-    return trade_client, data_client
+    return trade_client, data_client, api_client
 
 
 
@@ -42,7 +34,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, _ = get_clients()
+        trade_client, _, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -51,7 +43,6 @@ def test_webull_connection():
             "account": response.json()
         }
 
-
     except Exception as e:
 
         return {
@@ -61,48 +52,126 @@ def test_webull_connection():
 
 
 
-def get_spy_price():
+def get_option_contracts(option_type="CALL"):
 
     try:
 
-        _, data_client = get_clients()
+        _, _, api_client = get_clients()
 
-        response = data_client.market_data.get_quotes(
-            ["SPY"],
-            "US_STOCK"
+
+        from webull.instrument.instrument_client import InstrumentClient
+
+
+        instrument_client = InstrumentClient(api_client)
+
+
+        today = datetime.now()
+
+        start_date = (
+            today + timedelta(days=20)
+        ).strftime("%Y-%m-%d")
+
+
+        end_date = (
+            today + timedelta(days=60)
+        ).strftime("%Y-%m-%d")
+
+
+        response = instrument_client.option_contracts(
+            underlying_symbols="SPY",
+            category="US_OPTION",
+            status="LISTING",
+            start_date=start_date,
+            end_date=end_date,
+            option_type=option_type,
+            page_size=100
         )
 
-        return {
-            "success": True,
-            "spy_quote": response.json()
-        }
+
+        return response.json()
 
 
     except Exception as e:
 
         return {
-            "success": False,
+
             "error": str(e)
+
         }
 
 
 
-def debug_market_data():
+def select_contract(option_type="CALL"):
 
     try:
 
-        _, data_client = get_clients()
+        contracts = get_option_contracts(option_type)
+
+
+        if "options" not in contracts:
+
+            return {
+
+                "success": False,
+
+                "error": contracts
+
+            }
+
+
+        choices = []
+
+
+        for contract in contracts["options"]:
+
+            if (
+
+                contract.get("def_type") == "STANDARD"
+                and
+                contract.get("style") == "AMERICAN"
+
+            ):
+
+                choices.append(contract)
+
+
+
+        if not choices:
+
+            return {
+
+                "success": False,
+
+                "error": "No matching contracts found"
+
+            }
+
+
+
+        # Pick first valid contract for now
+        # Later we will rank by distance from SPY price
+
+        selected = choices[0]
+
 
         return {
 
             "success": True,
 
-            "market_methods": [
-                x for x in dir(data_client.market_data)
-                if not x.startswith("_")
-            ]
+            "selected_contract": {
+
+                "symbol": selected.get("symbol"),
+
+                "type": selected.get("option_type"),
+
+                "strike": selected.get("strike_price"),
+
+                "expiration": selected.get("expiration_date")
+
+            }
 
         }
+
 
 
     except Exception as e:
@@ -114,30 +183,6 @@ def debug_market_data():
             "error": str(e)
 
         }
-
-
-
-def test_options():
-
-    return {
-
-        "success": True,
-
-        "message": "Options API ready"
-
-    }
-
-
-
-def select_contract():
-
-    return {
-
-        "success": True,
-
-        "message": "Contract selector waiting for price feed"
-
-    }
 
 
 
@@ -147,6 +192,30 @@ def paper_buy_spy():
 
         "success": True,
 
-        "message": "Paper trading waiting for contract selection"
+        "message": "Paper order placeholder"
+
+    }
+
+
+
+def test_options():
+
+    return {
+
+        "success": True,
+
+        "message": "Option selector ready"
+
+    }
+
+
+
+def debug_market_data():
+
+    return {
+
+        "success": True,
+
+        "message": "Market data not used yet"
 
     }
