@@ -21,10 +21,10 @@ def get_clients():
         "api.sandbox.webull.com"
     )
 
-    trade_client = TradeClient(api_client)
-    data_client = DataClient(api_client)
-
-    return trade_client, data_client
+    return (
+        TradeClient(api_client),
+        DataClient(api_client)
+    )
 
 
 
@@ -56,14 +56,16 @@ def test_options():
 
         trade_client, data_client = get_clients()
 
-        methods = [
-            x for x in dir(data_client.option_market_data)
-            if "option" in x.lower()
-        ]
+        option_symbol = "SPY260821C00600000"
+
+        response = data_client.option_market_data.get_option_snapshot(
+            option_symbol,
+            "US_OPTION"
+        )
 
         return {
             "success": True,
-            "option_methods": methods
+            "snapshot": response.json()
         }
 
     except Exception as e:
@@ -79,7 +81,7 @@ def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Disabled during option testing"
+        "message": "Disabled"
     }
 
 
@@ -88,5 +90,5 @@ def test_option_order():
 
     return {
         "success": False,
-        "message": "Waiting for option contract lookup"
+        "message": "Waiting for verified option symbol"
     }
