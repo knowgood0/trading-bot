@@ -3,8 +3,6 @@ import os
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 
-from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
-
 
 def get_trade_client():
 
@@ -54,74 +52,18 @@ def test_options():
 
         trade_client, api_client = get_trade_client()
 
-        attempts = []
-
-
-        tests = [
-            {
-                "underlying_symbols": "SPY",
-                "page_size": 5
-            },
-            {
-                "root_symbol": "SPY",
-                "page_size": 5
-            },
-            {
-                "option_symbol": "SPY",
-                "page_size": 5
-            }
-        ]
-
-
-        for params in tests:
-
-            request = GetOptionContractsRequest()
-
-            if "underlying_symbols" in params:
-                request.set_underlying_symbols(
-                    params["underlying_symbols"]
-                )
-
-            if "root_symbol" in params:
-                request.set_root_symbol(
-                    params["root_symbol"]
-                )
-
-            if "option_symbol" in params:
-                request.set_option_symbol(
-                    params["option_symbol"]
-                )
-
-            request.set_page_size(
-                params["page_size"]
-            )
-
-
-            try:
-
-                response = api_client.get_response(
-                    request
-                )
-
-                attempts.append({
-                    "params": params,
-                    "success": True,
-                    "response": response.json()
-                })
-
-
-            except Exception as e:
-
-                attempts.append({
-                    "params": params,
-                    "success": False,
-                    "error": str(e)
-                })
-
+        result = trade_client.trade_instrument.get_trade_security_detail(
+            "SPY",
+            "US",
+            "OPTION",
+            "OPTION",
+            "600",
+            "2026-08-21"
+        )
 
         return {
             "success": True,
-            "attempts": attempts
+            "response": result.json()
         }
 
 
@@ -147,5 +89,5 @@ def test_option_order():
 
     return {
         "success": False,
-        "message": "Waiting for valid contract"
+        "message": "Waiting for valid contract data"
     }
