@@ -37,7 +37,7 @@ def options_test():
 
 
 @app.route("/select-contract")
-def contract():
+def contract_test():
 
     return jsonify(
         select_contract()
