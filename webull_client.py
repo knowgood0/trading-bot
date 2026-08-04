@@ -1,9 +1,8 @@
 import os
-import uuid
-
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
+from webull.data.data_client import DataClient
 
 
 def get_clients():
@@ -24,13 +23,15 @@ def get_clients():
 
     trade_client = TradeClient(api_client)
 
-    return trade_client, api_client
+    data_client = DataClient(api_client)
+
+    return trade_client, data_client, api_client
 
 
 
 def get_trade_client():
 
-    trade_client, _ = get_clients()
+    trade_client, _, _ = get_clients()
 
     return trade_client
 
@@ -40,7 +41,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client = get_trade_client()
+        trade_client, _, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -48,7 +49,6 @@ def test_webull_connection():
             "success": True,
             "account": response.json()
         }
-
 
     except Exception as e:
 
@@ -63,27 +63,20 @@ def debug_market_data():
 
     try:
 
-        trade_client, api_client = get_clients()
-
+        trade_client, data_client, api_client = get_clients()
 
         return {
 
             "success": True,
 
-            "trade_client_methods": [
-                x for x in dir(trade_client)
-                if "market" in x.lower()
-                or "quote" in x.lower()
-                or "snapshot" in x.lower()
-                or "tick" in x.lower()
+            "data_client_methods": [
+                x for x in dir(data_client)
+                if not x.startswith("_")
             ],
 
-            "api_client_methods": [
-                x for x in dir(api_client)
-                if "market" in x.lower()
-                or "quote" in x.lower()
-                or "snapshot" in x.lower()
-                or "tick" in x.lower()
+            "market_data_methods": [
+                x for x in dir(data_client.market_data)
+                if not x.startswith("_")
             ]
 
         }
@@ -104,22 +97,15 @@ def test_options():
 
     try:
 
-        trade_client, api_client = get_clients()
-
-
-        option_data = api_client
-
+        _, data_client, _ = get_clients()
 
         return {
 
             "success": True,
 
-            "message": "API connection working. Ready for contract selector upgrade.",
-
-            "api_methods": [
-                x for x in dir(api_client)
-                if "option" in x.lower()
-                or "market" in x.lower()
+            "option_methods": [
+                x for x in dir(data_client.option_market_data)
+                if not x.startswith("_")
             ]
 
         }
@@ -138,71 +124,24 @@ def test_options():
 
 def select_contract():
 
-    try:
+    return {
 
-        trade_client, api_client = get_clients()
+        "success": True,
 
+        "message":
+        "Contract selector ready for SPY price integration."
 
-        # This is the contract lookup that already worked
-        contracts = api_client
-
-
-        return {
-
-            "success": True,
-
-            "message": "Contract selection endpoint alive. Next step is adding SPY price lookup.",
-
-        }
-
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
-            "error": str(e)
-
-        }
+    }
 
 
 
 def paper_buy_spy():
 
-    try:
+    return {
 
-        trade_client = get_trade_client()
+        "success": True,
 
+        "message":
+        "Paper trading waiting for contract selection."
 
-        account_id = os.environ.get(
-            "WEBULL_ACCOUNT_ID"
-        )
-
-
-        if not account_id:
-
-            return {
-
-                "success": False,
-                "error": "Missing WEBULL_ACCOUNT_ID"
-
-            }
-
-
-        return {
-
-            "success": True,
-
-            "message": "Paper buy placeholder working. Waiting for contract selector."
-
-        }
-
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
-            "error": str(e)
-
-        }
+    }
