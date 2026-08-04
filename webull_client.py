@@ -164,6 +164,7 @@ def test_option_order():
                     {
                         "symbol": "SPY260821C00600000",
                         "instrument_type": "OPTION",
+                        "option_type": "CALL",
                         "market": "US",
                         "side": "BUY",
                         "quantity": "1"
