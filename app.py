@@ -1,12 +1,11 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from webull_client import (
     test_webull_connection,
     test_options,
     select_contract,
     paper_buy_spy,
-    debug_market_data,
-    get_spy_price
+    debug_market_data
 )
 
 
@@ -21,12 +20,14 @@ def home():
     })
 
 
+
 @app.route("/webull-test")
 def webull_test():
 
     return jsonify(
         test_webull_connection()
     )
+
 
 
 @app.route("/options-test")
@@ -37,20 +38,35 @@ def options_test():
     )
 
 
+
 @app.route("/select-contract")
 def contract_test():
 
     return jsonify(
-        select_contract()
+        select_contract("CALL")
     )
 
 
-@app.route("/spy-price")
-def spy_price():
 
-    return jsonify(
-        get_spy_price()
+@app.route("/webhook", methods=["POST"])
+def webhook():
+
+    data = request.json
+
+
+    option_type = data.get(
+        "option_type",
+        "CALL"
     )
+
+
+    result = select_contract(
+        option_type
+    )
+
+
+    return jsonify(result)
+
 
 
 @app.route("/debug-market-data")
@@ -61,12 +77,14 @@ def market_debug():
     )
 
 
+
 @app.route("/buy-test")
 def buy_test():
 
     return jsonify(
         paper_buy_spy()
     )
+
 
 
 if __name__ == "__main__":
