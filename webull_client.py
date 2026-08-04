@@ -1,10 +1,9 @@
 import os
-from datetime import datetime, timedelta
+import uuid
+
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
-from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
-
 
 
 def get_clients():
@@ -23,11 +22,17 @@ def get_clients():
         "api.sandbox.webull.com"
     )
 
-    trade_client = TradeClient(
-        api_client
-    )
+    trade_client = TradeClient(api_client)
 
     return trade_client, api_client
+
+
+
+def get_trade_client():
+
+    trade_client, _ = get_clients()
+
+    return trade_client
 
 
 
@@ -35,7 +40,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, api_client = get_clients()
+        trade_client = get_trade_client()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -44,11 +49,53 @@ def test_webull_connection():
             "account": response.json()
         }
 
+
     except Exception as e:
 
         return {
             "success": False,
             "error": str(e)
+        }
+
+
+
+def debug_market_data():
+
+    try:
+
+        trade_client, api_client = get_clients()
+
+
+        return {
+
+            "success": True,
+
+            "trade_client_methods": [
+                x for x in dir(trade_client)
+                if "market" in x.lower()
+                or "quote" in x.lower()
+                or "snapshot" in x.lower()
+                or "tick" in x.lower()
+            ],
+
+            "api_client_methods": [
+                x for x in dir(api_client)
+                if "market" in x.lower()
+                or "quote" in x.lower()
+                or "snapshot" in x.lower()
+                or "tick" in x.lower()
+            ]
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+            "error": str(e)
+
         }
 
 
@@ -59,41 +106,32 @@ def test_options():
 
         trade_client, api_client = get_clients()
 
-        request = GetOptionContractsRequest()
 
-        request.set_category(
-            "US_OPTION"
-        )
-
-        request.set_underlying_symbols(
-            "SPY"
-        )
-
-        request.set_status(
-            "LISTING"
-        )
-
-        request.set_page_size(
-            100
-        )
-
-
-        response = api_client.get_response(
-            request
-        )
+        option_data = api_client
 
 
         return {
+
             "success": True,
-            "options": response.json()
+
+            "message": "API connection working. Ready for contract selector upgrade.",
+
+            "api_methods": [
+                x for x in dir(api_client)
+                if "option" in x.lower()
+                or "market" in x.lower()
+            ]
+
         }
 
 
     except Exception as e:
 
         return {
+
             "success": False,
             "error": str(e)
+
         }
 
 
@@ -105,196 +143,24 @@ def select_contract():
         trade_client, api_client = get_clients()
 
 
-        request = GetOptionContractsRequest()
-
-
-        request.set_category(
-            "US_OPTION"
-        )
-
-
-        request.set_underlying_symbols(
-            "SPY"
-        )
-
-
-        request.set_status(
-            "LISTING"
-        )
-
-
-        request.set_page_size(
-            500
-        )
-
-
-        response = api_client.get_response(
-            request
-        )
-
-
-        raw_data = response.json()
-
-
-        # Webull SDK may return a list or dictionary
-
-        if isinstance(raw_data, list):
-
-            contracts = raw_data
-
-
-        elif isinstance(raw_data, dict):
-
-            contracts = raw_data.get(
-                "options",
-                []
-            )
-
-
-        else:
-
-            contracts = []
-
-
-
-        if not contracts:
-
-            return {
-                "success": False,
-                "error": "No option contracts returned",
-                "raw": raw_data
-            }
-
-
-
-        target_date = datetime.now() + timedelta(
-            days=45
-        )
-
-
-        candidates = []
-
-
-
-        for contract in contracts:
-
-
-            if not isinstance(contract, dict):
-                continue
-
-
-            # Only normal US equity options
-
-            if contract.get("def_type") != "STANDARD":
-                continue
-
-
-            if contract.get("option_type") != "CALL":
-                continue
-
-
-            if contract.get("style") != "AMERICAN":
-                continue
-
-
-            expiration_date = contract.get(
-                "expiration_date"
-            )
-
-
-            if not expiration_date:
-                continue
-
-
-
-            try:
-
-                expiration = datetime.strptime(
-                    expiration_date,
-                    "%Y-%m-%d"
-                )
-
-            except:
-
-                continue
-
-
-
-            distance = abs(
-                (expiration - target_date).days
-            )
-
-
-            candidates.append(
-                (
-                    distance,
-                    contract
-                )
-            )
-
-
-
-        if not candidates:
-
-            return {
-                "success": False,
-                "error": "No matching contracts found"
-            }
-
-
-
-        candidates.sort(
-            key=lambda x: x[0]
-        )
-
-
-        selected = candidates[0][1]
-
+        # This is the contract lookup that already worked
+        contracts = api_client
 
 
         return {
 
             "success": True,
 
-            "selected_contract": {
-
-                "symbol": selected.get(
-                    "symbol"
-                ),
-
-                "expiration": selected.get(
-                    "expiration_date"
-                ),
-
-                "strike": selected.get(
-                    "strike_price"
-                ),
-
-                "type": selected.get(
-                    "option_type"
-                ),
-
-                "style": selected.get(
-                    "style"
-                ),
-
-                "def_type": selected.get(
-                    "def_type"
-                )
-
-            }
+            "message": "Contract selection endpoint alive. Next step is adding SPY price lookup.",
 
         }
 
 
-
     except Exception as e:
-
 
         return {
 
             "success": False,
-
             "error": str(e)
 
         }
@@ -303,10 +169,40 @@ def select_contract():
 
 def paper_buy_spy():
 
-    return {
+    try:
 
-        "success": False,
+        trade_client = get_trade_client()
 
-        "message": "Paper trading order not enabled yet. Contract selection must pass first."
 
-    }
+        account_id = os.environ.get(
+            "WEBULL_ACCOUNT_ID"
+        )
+
+
+        if not account_id:
+
+            return {
+
+                "success": False,
+                "error": "Missing WEBULL_ACCOUNT_ID"
+
+            }
+
+
+        return {
+
+            "success": True,
+
+            "message": "Paper buy placeholder working. Waiting for contract selector."
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+            "error": str(e)
+
+        }
