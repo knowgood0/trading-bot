@@ -30,7 +30,6 @@ def get_trade_client():
 def test_webull_connection():
 
     try:
-
         trade_client, api_client = get_trade_client()
 
         response = trade_client.account_v2.get_account_list()
@@ -41,7 +40,6 @@ def test_webull_connection():
         }
 
     except Exception as e:
-
         return {
             "success": False,
             "error": str(e)
@@ -52,11 +50,9 @@ def test_webull_connection():
 def test_options():
 
     try:
-
         trade_client, api_client = get_trade_client()
 
         request = GetOptionContractsRequest()
-
         request.set_underlying_symbols("SPY")
         request.set_page_size(10)
 
@@ -68,7 +64,6 @@ def test_options():
         }
 
     except Exception as e:
-
         return {
             "success": False,
             "error": str(e)
@@ -79,20 +74,9 @@ def test_options():
 def paper_buy_spy():
 
     try:
-
         trade_client, api_client = get_trade_client()
 
-        account_id = os.environ.get(
-            "WEBULL_ACCOUNT_ID"
-        )
-
-        if not account_id:
-
-            return {
-                "success": False,
-                "error": "Missing WEBULL_ACCOUNT_ID"
-            }
-
+        account_id = os.environ.get("WEBULL_ACCOUNT_ID")
 
         order = [
             {
@@ -109,21 +93,17 @@ def paper_buy_spy():
             }
         ]
 
-
         response = trade_client.order_v3.place_order(
             account_id,
             order
         )
-
 
         return {
             "success": True,
             "response": response.json()
         }
 
-
     except Exception as e:
-
         return {
             "success": False,
             "error": str(e)
@@ -140,13 +120,6 @@ def test_option_order():
         account_id = os.environ.get(
             "WEBULL_ACCOUNT_ID"
         )
-
-        if not account_id:
-
-            return {
-                "success": False,
-                "error": "Missing WEBULL_ACCOUNT_ID"
-            }
 
 
         option_order = [
@@ -167,7 +140,9 @@ def test_option_order():
                         "option_type": "CALL",
                         "market": "US",
                         "side": "BUY",
-                        "quantity": "1"
+                        "quantity": "1",
+                        "strike_price": "600",
+                        "init_exp_date": "2026-08-21"
                     }
                 ]
             }
