@@ -5,6 +5,7 @@ from webull_client import (
     test_options,
     select_contract,
     debug_market_data,
+    debug_option_chain,
     paper_buy_spy
 )
 
@@ -54,6 +55,15 @@ def select_contract_test():
 
     return jsonify(
         select_contract(option_type)
+    )
+
+
+
+@app.route("/debug-option-chain")
+def debug_option_chain_test():
+
+    return jsonify(
+        debug_option_chain()
     )
 
 
@@ -114,11 +124,9 @@ def webhook():
         )
 
 
-
         contract = select_contract(
             option_type
         )
-
 
 
         return jsonify({
@@ -138,7 +146,6 @@ def webhook():
             "contract_selection": contract
 
         })
-
 
 
     except Exception as e:
