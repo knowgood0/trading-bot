@@ -7,6 +7,7 @@ from webull_client import (
     debug_market_data,
     debug_option_chain,
     debug_option_method,
+    get_spy_price,
     paper_buy_spy
 )
 
@@ -19,11 +20,8 @@ app = Flask(__name__)
 def home():
 
     return jsonify({
-
         "status": "Trading bot online",
-
         "message": "Webull sandbox connected"
-
     })
 
 
@@ -56,6 +54,15 @@ def select_contract_test():
 
     return jsonify(
         select_contract(option_type)
+    )
+
+
+
+@app.route("/spy-price")
+def spy_price_test():
+
+    return jsonify(
+        get_spy_price()
     )
 
 
@@ -103,17 +110,12 @@ def webhook():
 
         data = request.json
 
-
         if not data:
 
             return jsonify({
-
                 "success": False,
-
                 "error": "No JSON payload received"
-
             })
-
 
 
         symbol = data.get(
@@ -121,12 +123,10 @@ def webhook():
             "SPY"
         )
 
-
         action = data.get(
             "action",
             "BUY"
         )
-
 
         option_type = data.get(
             "option_type",
@@ -175,4 +175,4 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=5000
-    )
+)
