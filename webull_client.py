@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -74,6 +73,86 @@ def get_option_contracts(option_type="CALL"):
 
 
 
+def debug_option_chain():
+
+    try:
+
+        contracts = get_option_contracts()
+
+
+        if isinstance(contracts, dict) and "error" in contracts:
+
+            return {
+                "success": False,
+                "error": contracts["error"]
+            }
+
+
+        if not isinstance(contracts, list):
+
+            return {
+                "success": False,
+                "error": "Unexpected response format",
+                "data": contracts
+            }
+
+
+        expirations = sorted(
+            list(
+                set(
+                    contract.get("expiration_date")
+                    for contract in contracts
+                    if contract.get("expiration_date")
+                )
+            )
+        )
+
+
+        strikes = sorted(
+            list(
+                set(
+                    contract.get("strike_price")
+                    for contract in contracts
+                    if contract.get("strike_price")
+                )
+            )
+        )
+
+
+        samples = contracts[:10]
+
+
+        return {
+
+            "success": True,
+
+            "total_contracts": len(contracts),
+
+            "expiration_count": len(expirations),
+
+            "available_expirations": expirations[:50],
+
+            "strike_count": len(strikes),
+
+            "sample_strikes": strikes[:50],
+
+            "sample_contracts": samples
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
 def select_contract(option_type="CALL"):
 
     try:
@@ -93,20 +172,14 @@ def select_contract(option_type="CALL"):
 
             return {
                 "success": False,
-                "error": "Unexpected contract format",
-                "data": contracts
+                "error": "Unexpected contract format"
             }
-
 
 
         valid_contracts = []
 
 
         for contract in contracts:
-
-            if not isinstance(contract, dict):
-                continue
-
 
             if (
 
@@ -140,34 +213,6 @@ def select_contract(option_type="CALL"):
 
             }
 
-
-
-        # Prefer contracts closer to the current date
-        today = datetime.now()
-
-
-        def expiration_score(contract):
-
-            try:
-
-                expiration = datetime.strptime(
-                    contract.get("expiration_date"),
-                    "%Y-%m-%d"
-                )
-
-                return abs(
-                    (expiration - today).days - 45
-                )
-
-            except:
-
-                return 99999
-
-
-
-        valid_contracts.sort(
-            key=expiration_score
-        )
 
 
         selected = valid_contracts[0]
