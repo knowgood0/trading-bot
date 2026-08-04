@@ -31,6 +31,28 @@ def get_clients():
 
 
 
+def test_webull_connection():
+
+    try:
+
+        trade_client, _ = get_clients()
+
+        response = trade_client.account_v2.get_account_list()
+
+        return {
+            "success": True,
+            "account": response.json()
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+
 def debug_option_method():
 
     try:
@@ -52,7 +74,6 @@ def debug_option_method():
             )
 
         }
-
 
     except Exception as e:
 
@@ -87,31 +108,112 @@ def get_option_contracts(option_type="CALL"):
 
 
 
-def select_contract(option_type="CALL"):
-
-    return {
-
-        "success": False,
-
-        "message": "Selector paused while inspecting SDK"
-
-    }
-
-
-
-def test_webull_connection():
+def debug_option_chain():
 
     try:
 
-        trade_client, _ = get_clients()
+        contracts = get_option_contracts()
 
-        response = trade_client.account_v2.get_account_list()
+
+        if not isinstance(contracts, list):
+
+            return {
+
+                "success": False,
+
+                "data": contracts
+
+            }
+
 
         return {
 
             "success": True,
 
-            "account": response.json()
+            "total_contracts": len(contracts),
+
+            "sample_contracts": contracts[:10]
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
+def select_contract(option_type="CALL"):
+
+    try:
+
+        contracts = get_option_contracts(option_type)
+
+
+        if isinstance(contracts, dict) and "error" in contracts:
+
+            return {
+
+                "success": False,
+
+                "error": contracts["error"]
+
+            }
+
+
+        valid_contracts = []
+
+
+        for contract in contracts:
+
+            if (
+
+                contract.get("def_type") == "STANDARD"
+
+                and
+
+                contract.get("style") == "AMERICAN"
+
+                and
+
+                contract.get("option_type") == option_type
+
+                and
+
+                contract.get("tradable_status") == "OC"
+
+            ):
+
+                valid_contracts.append(contract)
+
+
+
+        if not valid_contracts:
+
+            return {
+
+                "success": False,
+
+                "error": "No valid contracts found"
+
+            }
+
+
+
+        selected = valid_contracts[0]
+
+
+        return {
+
+            "success": True,
+
+            "selected_contract": selected
 
         }
 
@@ -134,7 +236,7 @@ def test_options():
 
         "success": True,
 
-        "message": "Option test active"
+        "message": "Option contract selector ready"
 
     }
 
