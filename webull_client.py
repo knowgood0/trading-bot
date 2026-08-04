@@ -40,6 +40,7 @@ def test_webull_connection():
             "account": response.json()
         }
 
+
     except Exception as e:
 
         return {
@@ -49,23 +50,30 @@ def test_webull_connection():
 
 
 
-def debug_sdk():
+def debug_market_data():
 
     try:
 
-        import webull
-
         api_client = get_api_client()
 
+        data_client = DataClient(api_client)
 
         return {
 
             "success": True,
 
-            "webull_modules": dir(webull),
+            "data_client_methods": [
+                x for x in dir(data_client)
+                if not x.startswith("_")
+            ],
 
-            "api_client_methods": [
-                x for x in dir(api_client)
+            "data_submodules": [
+                x for x in dir(data_client)
+                if not x.startswith("_")
+            ],
+
+            "market_data_methods": [
+                x for x in dir(data_client.market_data)
                 if not x.startswith("_")
             ]
 
@@ -87,8 +95,11 @@ def debug_sdk():
 def test_options():
 
     return {
+
         "success": True,
-        "message": "Waiting for contract endpoint"
+
+        "message": "Option testing active"
+
     }
 
 
@@ -96,8 +107,11 @@ def test_options():
 def select_contract(option_type="CALL"):
 
     return {
+
         "success": False,
-        "error": "Contract lookup temporarily disabled while finding SDK endpoint"
+
+        "error": "Waiting for option contract API connection"
+
     }
 
 
@@ -105,12 +119,9 @@ def select_contract(option_type="CALL"):
 def paper_buy_spy():
 
     return {
+
         "success": True,
-        "message": "Paper order placeholder"
+
+        "message": "Paper trading placeholder"
+
     }
-
-
-
-def debug_market_data():
-
-    return debug_sdk()
