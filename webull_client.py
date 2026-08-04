@@ -30,6 +30,7 @@ def get_trade_client():
 def test_webull_connection():
 
     try:
+
         trade_client, api_client = get_trade_client()
 
         response = trade_client.account_v2.get_account_list()
@@ -40,6 +41,7 @@ def test_webull_connection():
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -50,20 +52,23 @@ def test_webull_connection():
 def test_options():
 
     try:
+
         trade_client, api_client = get_trade_client()
 
         request = GetOptionContractsRequest()
+
         request.set_underlying_symbols("SPY")
-        request.set_page_size(10)
+        request.set_page_size(5)
 
         response = api_client.get_response(request)
 
         return {
             "success": True,
-            "response": response.json()
+            "contracts": response.json()
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -74,9 +79,20 @@ def test_options():
 def paper_buy_spy():
 
     try:
+
         trade_client, api_client = get_trade_client()
 
-        account_id = os.environ.get("WEBULL_ACCOUNT_ID")
+        account_id = os.environ.get(
+            "WEBULL_ACCOUNT_ID"
+        )
+
+        if not account_id:
+
+            return {
+                "success": False,
+                "error": "Missing WEBULL_ACCOUNT_ID"
+            }
+
 
         order = [
             {
@@ -93,17 +109,21 @@ def paper_buy_spy():
             }
         ]
 
+
         response = trade_client.order_v3.place_order(
             account_id,
             order
         )
+
 
         return {
             "success": True,
             "response": response.json()
         }
 
+
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -113,57 +133,7 @@ def paper_buy_spy():
 
 def test_option_order():
 
-    try:
-
-        trade_client, api_client = get_trade_client()
-
-        account_id = os.environ.get(
-            "WEBULL_ACCOUNT_ID"
-        )
-
-
-        option_order = [
-            {
-                "combo_type": "NORMAL",
-                "client_order_id": uuid.uuid4().hex,
-                "option_strategy": "SINGLE",
-                "order_type": "MARKET",
-                "quantity": "1",
-                "side": "BUY",
-                "time_in_force": "DAY",
-                "entrust_type": "QTY",
-
-                "legs": [
-                    {
-                        "symbol": "SPY260821C00600000",
-                        "instrument_type": "OPTION",
-                        "option_type": "CALL",
-                        "market": "US",
-                        "side": "BUY",
-                        "quantity": "1",
-                        "strike_price": "600",
-                        "init_exp_date": "2026-08-21"
-                    }
-                ]
-            }
-        ]
-
-
-        response = trade_client.order_v2.place_option(
-            account_id,
-            option_order
-        )
-
-
-        return {
-            "success": True,
-            "response": response.json()
-        }
-
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
+    return {
+        "success": False,
+        "message": "Option order paused until real contract data is retrieved"
+    }
