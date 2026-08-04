@@ -94,13 +94,10 @@ def paper_buy_spy():
             }
 
 
-        order_id = uuid.uuid4().hex
-
-
         order = [
             {
                 "combo_type": "NORMAL",
-                "client_order_id": order_id,
+                "client_order_id": uuid.uuid4().hex,
                 "symbol": "SPY",
                 "instrument_type": "EQUITY",
                 "market": "US",
@@ -132,6 +129,8 @@ def paper_buy_spy():
             "error": str(e)
         }
 
+
+
 def test_option_order():
 
     try:
@@ -150,15 +149,17 @@ def test_option_order():
             }
 
 
-        order = [
+        option_order = [
             {
                 "combo_type": "NORMAL",
                 "client_order_id": uuid.uuid4().hex,
+                "option_strategy": "SINGLE",
                 "order_type": "MARKET",
                 "quantity": "1",
                 "side": "BUY",
                 "time_in_force": "DAY",
                 "entrust_type": "QTY",
+
                 "legs": [
                     {
                         "symbol": "SPY260821C00600000",
@@ -174,7 +175,7 @@ def test_option_order():
 
         response = trade_client.order_v2.place_option(
             account_id,
-            order
+            option_order
         )
 
 
