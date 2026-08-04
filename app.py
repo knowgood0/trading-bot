@@ -3,11 +3,14 @@ from flask import Flask, request, jsonify
 from webull_client import (
     test_webull_connection,
     select_contract,
-    debug_market_data,
-    debug_option_chain,
     get_spy_price,
     get_option_price,
-    paper_buy_spy
+    debug_option_chain,
+    debug_market_data,
+    paper_buy_spy,
+    paper_sell_spy,
+    paper_trade_status,
+    test_options
 )
 
 
@@ -18,8 +21,11 @@ app = Flask(__name__)
 def home():
 
     return jsonify({
+
         "status": "Trading bot online",
+
         "message": "Webull sandbox connected"
+
     })
 
 
@@ -62,8 +68,11 @@ def option_price_test():
     if not symbol:
 
         return jsonify({
+
             "success": False,
+
             "error": "Missing option symbol"
+
         })
 
 
@@ -81,18 +90,47 @@ def debug_option_chain_test():
 
 
 @app.route("/debug-market-data")
-def debug_market():
+def debug_market_test():
 
     return jsonify(
         debug_market_data()
     )
 
 
-@app.route("/buy-test")
-def buy_test():
+@app.route("/options-test")
+def options_test():
 
     return jsonify(
-        paper_buy_spy()
+        test_options()
+    )
+
+
+@app.route("/paper-buy")
+def paper_buy_test():
+
+    option_type = request.args.get(
+        "option_type",
+        "CALL"
+    )
+
+    return jsonify(
+        paper_buy_spy(option_type)
+    )
+
+
+@app.route("/paper-sell")
+def paper_sell_test():
+
+    return jsonify(
+        paper_sell_spy()
+    )
+
+
+@app.route("/paper-status")
+def paper_status_test():
+
+    return jsonify(
+        paper_trade_status()
     )
 
 
@@ -107,8 +145,11 @@ def webhook():
         if not data:
 
             return jsonify({
+
                 "success": False,
+
                 "error": "No JSON payload received"
+
             })
 
 
@@ -128,9 +169,28 @@ def webhook():
         )
 
 
-        contract = select_contract(
-            option_type
-        )
+        if action.upper() == "BUY":
+
+            trade_result = paper_buy_spy(
+                option_type
+            )
+
+
+        elif action.upper() == "SELL":
+
+            trade_result = paper_sell_spy()
+
+
+        else:
+
+            trade_result = {
+
+                "success": False,
+
+                "error": "Unknown action"
+
+            }
+
 
 
         return jsonify({
@@ -147,7 +207,7 @@ def webhook():
 
             },
 
-            "contract_selection": contract
+            "trade_result": trade_result
 
         })
 
@@ -166,6 +226,9 @@ def webhook():
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=5000
+
     )
