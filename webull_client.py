@@ -4,6 +4,8 @@ import uuid
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 
+from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
+
 
 def get_trade_client():
 
@@ -21,14 +23,15 @@ def get_trade_client():
         "api.sandbox.webull.com"
     )
 
-    return TradeClient(api_client)
+    return TradeClient(api_client), api_client
+
 
 
 def test_webull_connection():
 
     try:
 
-        trade_client = get_trade_client()
+        trade_client, api_client = get_trade_client()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -45,11 +48,39 @@ def test_webull_connection():
         }
 
 
-def test_option_order():
+
+def test_options():
 
     try:
 
-        trade_client = get_trade_client()
+        trade_client, api_client = get_trade_client()
+
+        request = GetOptionContractsRequest()
+
+        request.set_underlying_symbols("SPY")
+        request.set_page_size(10)
+
+        response = api_client.get_response(request)
+
+        return {
+            "success": True,
+            "response": response.json()
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+
+def paper_buy_spy():
+
+    try:
+
+        trade_client, api_client = get_trade_client()
 
         account_id = os.environ.get(
             "WEBULL_ACCOUNT_ID"
@@ -63,34 +94,28 @@ def test_option_order():
             }
 
 
-        client_order_id = uuid.uuid4().hex
+        order_id = uuid.uuid4().hex
 
 
-        option_order = [
+        order = [
             {
                 "combo_type": "NORMAL",
-                "client_order_id": client_order_id,
+                "client_order_id": order_id,
+                "symbol": "SPY",
+                "instrument_type": "EQUITY",
+                "market": "US",
                 "order_type": "MARKET",
                 "quantity": "1",
                 "side": "BUY",
                 "time_in_force": "DAY",
-                "entrust_type": "QTY",
-                "legs": [
-                    {
-                        "symbol": "SPY260821C00600000",
-                        "instrument_type": "OPTION",
-                        "market": "US",
-                        "side": "BUY",
-                        "quantity": "1"
-                    }
-                ]
+                "entrust_type": "QTY"
             }
         ]
 
 
-        response = trade_client.order_v2.place_option(
+        response = trade_client.order_v3.place_order(
             account_id,
-            option_order
+            order
         )
 
 
