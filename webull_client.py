@@ -2,9 +2,10 @@ import os
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
+from webull.data.data_client import DataClient
 
 
-def get_trade_client():
+def get_clients():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
@@ -20,7 +21,10 @@ def get_trade_client():
         "api.sandbox.webull.com"
     )
 
-    return TradeClient(api_client), api_client
+    trade_client = TradeClient(api_client)
+    data_client = DataClient(api_client)
+
+    return trade_client, data_client
 
 
 
@@ -28,7 +32,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, api_client = get_trade_client()
+        trade_client, data_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -50,22 +54,17 @@ def test_options():
 
     try:
 
-        trade_client, api_client = get_trade_client()
+        trade_client, data_client = get_clients()
 
-        result = trade_client.trade_instrument.get_trade_security_detail(
-            "SPY",
-            "US",
-            "OPTION",
-            "OPTION",
-            "600",
-            "2026-08-21"
-        )
+        methods = [
+            x for x in dir(data_client.option_market_data)
+            if "option" in x.lower()
+        ]
 
         return {
             "success": True,
-            "response": result.json()
+            "option_methods": methods
         }
-
 
     except Exception as e:
 
@@ -89,5 +88,5 @@ def test_option_order():
 
     return {
         "success": False,
-        "message": "Waiting for valid contract data"
+        "message": "Waiting for option contract lookup"
     }
