@@ -1,23 +1,29 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 
 from webull_client import (
     test_webull_connection,
     test_options,
     select_contract,
-    paper_buy_spy,
-    debug_market_data
+    debug_market_data,
+    paper_buy_spy
 )
 
 
 app = Flask(__name__)
 
 
+
 @app.route("/")
 def home():
 
     return jsonify({
-        "status": "Trading bot running"
+
+        "status": "Trading bot online",
+
+        "message": "Webull sandbox connected"
+
     })
+
 
 
 @app.route("/webull-test")
@@ -28,6 +34,7 @@ def webull_test():
     )
 
 
+
 @app.route("/options-test")
 def options_test():
 
@@ -36,37 +43,23 @@ def options_test():
     )
 
 
+
 @app.route("/select-contract")
-def contract_test():
+def select_contract_test():
 
-    return jsonify(
-        select_contract("CALL")
-    )
-
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-
-    data = request.json or {}
-
-
-    option_type = data.get(
+    option_type = request.args.get(
         "option_type",
         "CALL"
     )
 
-
-    result = select_contract(
-        option_type
+    return jsonify(
+        select_contract(option_type)
     )
-
-
-    return jsonify(result)
 
 
 
 @app.route("/debug-market-data")
-def market_debug():
+def debug_market():
 
     return jsonify(
         debug_market_data()
@@ -83,9 +76,86 @@ def buy_test():
 
 
 
+@app.route("/webhook", methods=["POST"])
+def webhook():
+
+    try:
+
+        data = request.json
+
+
+        if not data:
+
+            return jsonify({
+
+                "success": False,
+
+                "error": "No JSON payload received"
+
+            })
+
+
+
+        symbol = data.get(
+            "symbol",
+            "SPY"
+        )
+
+
+        action = data.get(
+            "action",
+            "BUY"
+        )
+
+
+        option_type = data.get(
+            "option_type",
+            "CALL"
+        )
+
+
+
+        contract = select_contract(
+            option_type
+        )
+
+
+
+        return jsonify({
+
+            "success": True,
+
+            "received_signal": {
+
+                "symbol": symbol,
+
+                "action": action,
+
+                "option_type": option_type
+
+            },
+
+            "contract_selection": contract
+
+        })
+
+
+
+    except Exception as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        })
+
+
+
 if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-        port=10000
+        port=5000
     )
