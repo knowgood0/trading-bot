@@ -6,8 +6,8 @@ from webull_client import (
     select_contract,
     debug_market_data,
     debug_option_chain,
-    debug_option_method,
     get_spy_price,
+    get_option_price,
     paper_buy_spy
 )
 
@@ -20,8 +20,11 @@ app = Flask(__name__)
 def home():
 
     return jsonify({
+
         "status": "Trading bot online",
+
         "message": "Webull sandbox connected"
+
     })
 
 
@@ -30,7 +33,9 @@ def home():
 def webull_test():
 
     return jsonify(
+
         test_webull_connection()
+
     )
 
 
@@ -39,7 +44,9 @@ def webull_test():
 def options_test():
 
     return jsonify(
+
         test_options()
+
     )
 
 
@@ -48,12 +55,18 @@ def options_test():
 def select_contract_test():
 
     option_type = request.args.get(
+
         "option_type",
+
         "CALL"
+
     )
 
+
     return jsonify(
+
         select_contract(option_type)
+
     )
 
 
@@ -62,7 +75,38 @@ def select_contract_test():
 def spy_price_test():
 
     return jsonify(
+
         get_spy_price()
+
+    )
+
+
+
+@app.route("/option-price")
+def option_price_test():
+
+    symbol = request.args.get(
+
+        "symbol"
+
+    )
+
+
+    if not symbol:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": "Missing option symbol"
+
+        })
+
+
+    return jsonify(
+
+        get_option_price(symbol)
+
     )
 
 
@@ -71,16 +115,9 @@ def spy_price_test():
 def debug_option_chain_test():
 
     return jsonify(
+
         debug_option_chain()
-    )
 
-
-
-@app.route("/debug-option-method")
-def debug_option_method_test():
-
-    return jsonify(
-        debug_option_method()
     )
 
 
@@ -89,7 +126,9 @@ def debug_option_method_test():
 def debug_market():
 
     return jsonify(
+
         debug_market_data()
+
     )
 
 
@@ -98,7 +137,9 @@ def debug_market():
 def buy_test():
 
     return jsonify(
+
         paper_buy_spy()
+
     )
 
 
@@ -110,32 +151,50 @@ def webhook():
 
         data = request.json
 
+
         if not data:
 
             return jsonify({
+
                 "success": False,
+
                 "error": "No JSON payload received"
+
             })
 
 
+
         symbol = data.get(
+
             "symbol",
+
             "SPY"
+
         )
+
 
         action = data.get(
+
             "action",
+
             "BUY"
+
         )
 
+
         option_type = data.get(
+
             "option_type",
+
             "CALL"
+
         )
 
 
         contract = select_contract(
+
             option_type
+
         )
 
 
@@ -173,6 +232,9 @@ def webhook():
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=5000
-)
+
+    )
