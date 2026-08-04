@@ -64,26 +64,17 @@ def get_spy_price():
             Category.US_STOCK.name
         )
 
-        data = response.json()
-
-
         return {
-
             "success": True,
-
-            "data": data
-
+            "data": response.json()
         }
 
 
     except Exception as e:
 
         return {
-
             "success": False,
-
             "error": str(e)
-
         }
 
 
@@ -103,24 +94,42 @@ def extract_spy_price():
 
     try:
 
+        if isinstance(data, list) and len(data) > 0:
+
+            quote = data[0]
+
+
+            if "price" in quote:
+
+                return float(
+                    quote["price"]
+                )
+
+
+            if "close" in quote:
+
+                return float(
+                    quote["close"]
+                )
+
+
         if isinstance(data, dict):
-
-            if "close" in data:
-
-                return float(data["close"])
-
 
             if "price" in data:
 
-                return float(data["price"])
+                return float(
+                    data["price"]
+                )
 
 
-            if "last_price" in data:
+            if "close" in data:
 
-                return float(data["last_price"])
+                return float(
+                    data["close"]
+                )
 
 
-    except:
+    except Exception:
 
         pass
 
@@ -178,9 +187,7 @@ def get_option_contracts(option_type="CALL"):
     except Exception as e:
 
         return {
-
             "error": str(e)
-
         }
 
 
@@ -254,7 +261,7 @@ def select_contract(option_type="CALL"):
 
                 return abs(
 
-                    float(contract["strike_price"])
+                    float(contract.get("strike_price"))
 
                     -
 
@@ -271,7 +278,9 @@ def select_contract(option_type="CALL"):
         else:
 
             valid_contracts.sort(
-                key=lambda x: x.get("strike_price")
+                key=lambda x: float(
+                    x.get("strike_price")
+                )
             )
 
 
@@ -301,6 +310,7 @@ def select_contract(option_type="CALL"):
             }
 
         }
+
 
 
     except Exception as e:
