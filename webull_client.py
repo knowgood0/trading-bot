@@ -16,9 +16,10 @@ def create_api_client():
         "us"
     )
 
+    # Use live Webull API endpoint for market data
     api_client.add_endpoint(
         "us",
-        "api.sandbox.webull.com"
+        "api.webull.com"
     )
 
     return api_client
@@ -50,6 +51,7 @@ def test_webull_connection():
             "account": response.json()
         }
 
+
     except Exception as e:
 
         return {
@@ -65,30 +67,22 @@ def get_spy_price():
 
         _, data_client = get_clients()
 
-
         response = data_client.market_data.get_quotes(
             ["SPY"],
             "US_STOCK"
         )
 
-
         return {
-
             "success": True,
-
             "spy_quote": response.json()
-
         }
 
 
     except Exception as e:
 
         return {
-
             "success": False,
-
             "error": str(e)
-
         }
 
 
@@ -141,7 +135,7 @@ def select_contract():
 
         "success": True,
 
-        "message": "Contract selector waiting for SPY price"
+        "message": "Contract selector waiting for price feed"
 
     }
 
@@ -153,6 +147,6 @@ def paper_buy_spy():
 
         "success": True,
 
-        "message": "Paper trading waiting"
+        "message": "Paper trading waiting for contract selection"
 
     }
