@@ -5,7 +5,8 @@ from webull_client import (
     test_options,
     select_contract,
     paper_buy_spy,
-    debug_market_data
+    debug_market_data,
+    get_spy_price
 )
 
 
@@ -44,11 +45,11 @@ def contract_test():
     )
 
 
-@app.route("/buy-test")
-def buy_test():
+@app.route("/spy-price")
+def spy_price():
 
     return jsonify(
-        paper_buy_spy()
+        get_spy_price()
     )
 
 
@@ -57,6 +58,14 @@ def market_debug():
 
     return jsonify(
         debug_market_data()
+    )
+
+
+@app.route("/buy-test")
+def buy_test():
+
+    return jsonify(
+        paper_buy_spy()
     )
 
 
