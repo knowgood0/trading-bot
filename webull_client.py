@@ -1,13 +1,11 @@
 import os
-from datetime import datetime, timedelta
-import uuid
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
 
 
-def get_clients():
+def get_api_client():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
@@ -23,10 +21,7 @@ def get_clients():
         "api.sandbox.webull.com"
     )
 
-    trade_client = TradeClient(api_client)
-    data_client = DataClient(api_client)
-
-    return trade_client, data_client, api_client
+    return api_client
 
 
 
@@ -34,7 +29,9 @@ def test_webull_connection():
 
     try:
 
-        trade_client, _, _ = get_clients()
+        api_client = get_api_client()
+
+        trade_client = TradeClient(api_client)
 
         response = trade_client.account_v2.get_account_list()
 
@@ -52,126 +49,27 @@ def test_webull_connection():
 
 
 
-def get_option_contracts(option_type="CALL"):
+def debug_sdk():
 
     try:
 
-        _, _, api_client = get_clients()
+        import webull
 
-
-        from webull.instrument.instrument_client import InstrumentClient
-
-
-        instrument_client = InstrumentClient(api_client)
-
-
-        today = datetime.now()
-
-        start_date = (
-            today + timedelta(days=20)
-        ).strftime("%Y-%m-%d")
-
-
-        end_date = (
-            today + timedelta(days=60)
-        ).strftime("%Y-%m-%d")
-
-
-        response = instrument_client.option_contracts(
-            underlying_symbols="SPY",
-            category="US_OPTION",
-            status="LISTING",
-            start_date=start_date,
-            end_date=end_date,
-            option_type=option_type,
-            page_size=100
-        )
-
-
-        return response.json()
-
-
-    except Exception as e:
-
-        return {
-
-            "error": str(e)
-
-        }
-
-
-
-def select_contract(option_type="CALL"):
-
-    try:
-
-        contracts = get_option_contracts(option_type)
-
-
-        if "options" not in contracts:
-
-            return {
-
-                "success": False,
-
-                "error": contracts
-
-            }
-
-
-        choices = []
-
-
-        for contract in contracts["options"]:
-
-            if (
-
-                contract.get("def_type") == "STANDARD"
-                and
-                contract.get("style") == "AMERICAN"
-
-            ):
-
-                choices.append(contract)
-
-
-
-        if not choices:
-
-            return {
-
-                "success": False,
-
-                "error": "No matching contracts found"
-
-            }
-
-
-
-        # Pick first valid contract for now
-        # Later we will rank by distance from SPY price
-
-        selected = choices[0]
+        api_client = get_api_client()
 
 
         return {
 
             "success": True,
 
-            "selected_contract": {
+            "webull_modules": dir(webull),
 
-                "symbol": selected.get("symbol"),
-
-                "type": selected.get("option_type"),
-
-                "strike": selected.get("strike_price"),
-
-                "expiration": selected.get("expiration_date")
-
-            }
+            "api_client_methods": [
+                x for x in dir(api_client)
+                if not x.startswith("_")
+            ]
 
         }
-
 
 
     except Exception as e:
@@ -186,36 +84,33 @@ def select_contract(option_type="CALL"):
 
 
 
-def paper_buy_spy():
+def test_options():
 
     return {
-
         "success": True,
-
-        "message": "Paper order placeholder"
-
+        "message": "Waiting for contract endpoint"
     }
 
 
 
-def test_options():
+def select_contract(option_type="CALL"):
 
     return {
+        "success": False,
+        "error": "Contract lookup temporarily disabled while finding SDK endpoint"
+    }
 
+
+
+def paper_buy_spy():
+
+    return {
         "success": True,
-
-        "message": "Option selector ready"
-
+        "message": "Paper order placeholder"
     }
 
 
 
 def debug_market_data():
 
-    return {
-
-        "success": True,
-
-        "message": "Market data not used yet"
-
-    }
+    return debug_sdk()
