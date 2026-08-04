@@ -238,3 +238,25 @@ def select_contract(option_type="CALL"):
             "error": str(e)
 
         }
+    def get_option_price(option_symbol):
+
+    try:
+
+        _, data_client = get_clients()
+
+        response = data_client.option_market_data.get_option_snapshot(
+            option_symbol,
+            Category.US_OPTION.name
+        )
+
+        return {
+            "success": True,
+            "data": response.json()
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
