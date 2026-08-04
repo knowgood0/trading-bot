@@ -5,7 +5,7 @@ from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
 
 
-def get_clients():
+def create_api_client():
 
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
@@ -21,10 +21,19 @@ def get_clients():
         "api.sandbox.webull.com"
     )
 
+    return api_client
+
+
+
+def get_clients():
+
+    api_client = create_api_client()
+
     trade_client = TradeClient(api_client)
+
     data_client = DataClient(api_client)
 
-    return trade_client, data_client, api_client
+    return trade_client, data_client
 
 
 
@@ -32,7 +41,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, _, _ = get_clients()
+        trade_client, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -54,34 +63,20 @@ def get_spy_price():
 
     try:
 
-        _, data_client, api_client = get_clients()
+        _, data_client = get_clients()
+
+
+        response = data_client.market_data.get_quotes(
+            ["SPY"],
+            "US_STOCK"
+        )
 
 
         return {
 
             "success": True,
 
-            "api_client": {
-
-                "class": str(type(api_client)),
-
-                "endpoint": getattr(
-                    api_client,
-                    "endpoint",
-                    None
-                )
-
-            },
-
-            "data_client": {
-
-                "class": str(type(data_client)),
-
-                "market_data_class": str(
-                    type(data_client.market_data)
-                )
-
-            }
+            "spy_quote": response.json()
 
         }
 
@@ -102,13 +97,13 @@ def debug_market_data():
 
     try:
 
-        _, data_client, _ = get_clients()
+        _, data_client = get_clients()
 
         return {
 
             "success": True,
 
-            "methods": [
+            "market_methods": [
                 x for x in dir(data_client.market_data)
                 if not x.startswith("_")
             ]
@@ -131,8 +126,11 @@ def debug_market_data():
 def test_options():
 
     return {
+
         "success": True,
-        "message": "Options OK"
+
+        "message": "Options API ready"
+
     }
 
 
@@ -140,8 +138,11 @@ def test_options():
 def select_contract():
 
     return {
+
         "success": True,
-        "message": "Waiting for price feed"
+
+        "message": "Contract selector waiting for SPY price"
+
     }
 
 
@@ -149,6 +150,9 @@ def select_contract():
 def paper_buy_spy():
 
     return {
+
         "success": True,
-        "message": "Waiting for contract"
+
+        "message": "Paper trading waiting"
+
     }
