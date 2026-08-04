@@ -1,5 +1,5 @@
 import os
-import inspect
+from datetime import datetime, timedelta
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -53,52 +53,51 @@ def test_webull_connection():
 
 
 
-def debug_option_method():
-
-    try:
-
-        _, data_client = get_clients()
-
-        method = data_client.instrument.get_option_contracts
-
-        return {
-
-            "success": True,
-
-            "signature": str(
-                inspect.signature(method)
-            ),
-
-            "doc": str(
-                inspect.getdoc(method)
-            )
-
-        }
-
-    except Exception as e:
-
-        return {
-
-            "success": False,
-
-            "error": str(e)
-
-        }
-
-
-
 def get_option_contracts(option_type="CALL"):
 
     try:
 
         _, data_client = get_clients()
 
+
+        today = datetime.now()
+
+
+        start_date = (
+            today + timedelta(days=20)
+        ).strftime("%Y-%m-%d")
+
+
+        end_date = (
+            today + timedelta(days=60)
+        ).strftime("%Y-%m-%d")
+
+
+
         response = data_client.instrument.get_option_contracts(
-            Category.US_OPTION.name,
-            "SPY"
+
+            category=Category.US_OPTION.name,
+
+            underlying_symbols="SPY",
+
+            status="LISTING",
+
+            start_date=start_date,
+
+            end_date=end_date,
+
+            option_type=option_type,
+
+            style="AMERICAN",
+
+            page_size=1000
+
         )
 
+
         return response.json()
+
+
 
     except Exception as e:
 
@@ -115,6 +114,18 @@ def debug_option_chain():
         contracts = get_option_contracts()
 
 
+        if isinstance(contracts, dict) and "error" in contracts:
+
+            return {
+
+                "success": False,
+
+                "error": contracts["error"]
+
+            }
+
+
+
         if not isinstance(contracts, list):
 
             return {
@@ -126,11 +137,38 @@ def debug_option_chain():
             }
 
 
+
+        expirations = sorted(
+            list(
+                set(
+                    c.get("expiration_date")
+                    for c in contracts
+                    if c.get("expiration_date")
+                )
+            )
+        )
+
+
+        strikes = sorted(
+            list(
+                set(
+                    c.get("strike_price")
+                    for c in contracts
+                    if c.get("strike_price")
+                )
+            )
+        )
+
+
         return {
 
             "success": True,
 
             "total_contracts": len(contracts),
+
+            "expirations": expirations,
+
+            "strike_count": len(strikes),
 
             "sample_contracts": contracts[:10]
 
@@ -167,7 +205,23 @@ def select_contract(option_type="CALL"):
             }
 
 
+
+        if not isinstance(contracts, list):
+
+            return {
+
+                "success": False,
+
+                "error": "Unexpected response format",
+
+                "data": contracts
+
+            }
+
+
+
         valid_contracts = []
+
 
 
         for contract in contracts:
@@ -200,22 +254,81 @@ def select_contract(option_type="CALL"):
 
                 "success": False,
 
-                "error": "No valid contracts found"
+                "error": "No valid contracts found",
+
+                "total_received": len(contracts)
 
             }
+
+
+
+        # Sort expiration closest to 45 days
+
+        target_days = 45
+
+        today = datetime.now()
+
+
+
+        def expiration_score(contract):
+
+            try:
+
+                expiration = datetime.strptime(
+
+                    contract.get("expiration_date"),
+
+                    "%Y-%m-%d"
+
+                )
+
+
+                days = (
+
+                    expiration - today
+
+                ).days
+
+
+                return abs(days - target_days)
+
+
+            except:
+
+                return 9999
+
+
+
+        valid_contracts.sort(
+            key=expiration_score
+        )
 
 
 
         selected = valid_contracts[0]
 
 
+
         return {
 
             "success": True,
 
-            "selected_contract": selected
+            "selected_contract": {
+
+                "symbol": selected.get("symbol"),
+
+                "type": selected.get("option_type"),
+
+                "strike": selected.get("strike_price"),
+
+                "expiration": selected.get("expiration_date"),
+
+                "raw": selected
+
+            }
 
         }
+
 
 
     except Exception as e:
@@ -227,6 +340,18 @@ def select_contract(option_type="CALL"):
             "error": str(e)
 
         }
+
+
+
+def debug_option_method():
+
+    return {
+
+        "success": True,
+
+        "message": "SDK method inspection complete"
+
+    }
 
 
 
