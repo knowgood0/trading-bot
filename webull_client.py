@@ -83,7 +83,6 @@ def extract_spy_price():
 
     result = get_spy_price()
 
-
     if not result.get("success"):
 
         return None
@@ -98,13 +97,11 @@ def extract_spy_price():
 
             quote = data[0]
 
-
             if "price" in quote:
 
                 return float(
                     quote["price"]
                 )
-
 
             if "close" in quote:
 
@@ -119,13 +116,6 @@ def extract_spy_price():
 
                 return float(
                     data["price"]
-                )
-
-
-            if "close" in data:
-
-                return float(
-                    data["close"]
                 )
 
 
@@ -158,7 +148,6 @@ def get_option_contracts(option_type="CALL"):
         ).strftime("%Y-%m-%d")
 
 
-
         response = data_client.instrument.get_option_contracts(
 
             category=Category.US_OPTION.name,
@@ -181,7 +170,6 @@ def get_option_contracts(option_type="CALL"):
 
 
         return response.json()
-
 
 
     except Exception as e:
@@ -210,9 +198,7 @@ def select_contract(option_type="CALL"):
             }
 
 
-
         spy_price = extract_spy_price()
-
 
 
         valid_contracts = []
@@ -257,11 +243,13 @@ def select_contract(option_type="CALL"):
         if spy_price:
 
 
-            def strike_distance(contract):
+            valid_contracts.sort(
 
-                return abs(
+                key=lambda x:
 
-                    float(contract.get("strike_price"))
+                abs(
+
+                    float(x.get("strike_price"))
 
                     -
 
@@ -269,24 +257,22 @@ def select_contract(option_type="CALL"):
 
                 )
 
-
-            valid_contracts.sort(
-                key=strike_distance
             )
 
 
         else:
 
             valid_contracts.sort(
-                key=lambda x: float(
-                    x.get("strike_price")
-                )
+
+                key=lambda x:
+
+                float(x.get("strike_price"))
+
             )
 
 
 
         selected = valid_contracts[0]
-
 
 
         return {
@@ -311,6 +297,42 @@ def select_contract(option_type="CALL"):
 
         }
 
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
+def get_option_price(option_symbol):
+
+    try:
+
+        _, data_client = get_clients()
+
+
+        response = data_client.option_market_data.get_option_snapshot(
+
+            option_symbol,
+
+            Category.US_OPTION.name
+
+        )
+
+
+        return {
+
+            "success": True,
+
+            "data": response.json()
+
+        }
 
 
     except Exception as e:
@@ -355,30 +377,6 @@ def debug_option_chain():
 
 
 
-def debug_option_method():
-
-    return {
-
-        "success": True,
-
-        "message": "SDK method inspection complete"
-
-    }
-
-
-
-def test_options():
-
-    return {
-
-        "success": True,
-
-        "message": "Option selector ready"
-
-    }
-
-
-
 def debug_market_data():
 
     try:
@@ -398,6 +396,7 @@ def debug_market_data():
             ]
 
         }
+
 
     except Exception as e:
 
