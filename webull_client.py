@@ -1,5 +1,4 @@
 import os
-from datetime import datetime, timedelta
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -69,6 +68,7 @@ def get_option_contracts(option_type="CALL"):
 
         data = response.json()
 
+
         return data
 
 
@@ -88,7 +88,7 @@ def select_contract(option_type="CALL"):
         contracts = get_option_contracts(option_type)
 
 
-        if "error" in contracts:
+        if isinstance(contracts, dict) and "error" in contracts:
 
             return {
                 "success": False,
@@ -96,13 +96,26 @@ def select_contract(option_type="CALL"):
             }
 
 
-        options = contracts.get("options", [])
+        if not isinstance(contracts, list):
+
+            return {
+                "success": False,
+                "error": "Unexpected Webull response format",
+                "received_type": str(type(contracts)),
+                "received_data": contracts
+            }
+
 
 
         valid_contracts = []
 
 
-        for contract in options:
+        for contract in contracts:
+
+            if not isinstance(contract, dict):
+
+                continue
+
 
             if (
 
@@ -111,10 +124,6 @@ def select_contract(option_type="CALL"):
                 and
 
                 contract.get("style") == "AMERICAN"
-
-                and
-
-                contract.get("tradable_status") in ["OC", "TRADABLE"]
 
                 and
 
@@ -132,7 +141,11 @@ def select_contract(option_type="CALL"):
 
                 "success": False,
 
-                "error": "No valid contracts found"
+                "error": "No matching contracts found",
+
+                "total_contracts_received": len(contracts),
+
+                "first_contract_sample": contracts[0] if contracts else None
 
             }
 
@@ -153,7 +166,9 @@ def select_contract(option_type="CALL"):
 
                 "strike": selected.get("strike_price"),
 
-                "expiration": selected.get("expiration_date")
+                "expiration": selected.get("expiration_date"),
+
+                "raw": selected
 
             }
 
