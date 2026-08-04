@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
 from webull.data.data_client import DataClient
+from webull.data.common.category import Category
 
 
 def get_clients():
@@ -60,49 +61,22 @@ def get_option_contracts(option_type="CALL"):
         _, data_client = get_clients()
 
 
-        today = datetime.now()
-
-
-        start_date = (
-            today + timedelta(days=20)
-        ).strftime("%Y-%m-%d")
-
-
-        end_date = (
-            today + timedelta(days=60)
-        ).strftime("%Y-%m-%d")
-
-
-
         response = data_client.instrument.get_option_contracts(
-
-            underlying_symbols="SPY",
-
-            category="US_OPTION",
-
-            status="LISTING",
-
-            start_date=start_date,
-
-            end_date=end_date,
-
-            option_type=option_type,
-
-            page_size=100
-
+            Category.US_OPTION.name,
+            "SPY"
         )
 
 
-        return response.json()
+        data = response.json()
+
+        return data
 
 
 
     except Exception as e:
 
         return {
-
             "error": str(e)
-
         }
 
 
@@ -114,22 +88,21 @@ def select_contract(option_type="CALL"):
         contracts = get_option_contracts(option_type)
 
 
-        if "options" not in contracts:
+        if "error" in contracts:
 
             return {
-
                 "success": False,
-
-                "error": contracts
-
+                "error": contracts["error"]
             }
 
+
+        options = contracts.get("options", [])
 
 
         valid_contracts = []
 
 
-        for contract in contracts["options"]:
+        for contract in options:
 
             if (
 
@@ -141,7 +114,11 @@ def select_contract(option_type="CALL"):
 
                 and
 
-                contract.get("tradable_status") == "OC"
+                contract.get("tradable_status") in ["OC", "TRADABLE"]
+
+                and
+
+                contract.get("option_type") == option_type
 
             ):
 
@@ -162,7 +139,6 @@ def select_contract(option_type="CALL"):
 
 
         selected = valid_contracts[0]
-
 
 
         return {
