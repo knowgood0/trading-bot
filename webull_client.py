@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -43,7 +44,6 @@ def test_webull_connection():
             "account": response.json()
         }
 
-
     except Exception as e:
 
         return {
@@ -59,19 +59,12 @@ def get_option_contracts(option_type="CALL"):
 
         _, data_client = get_clients()
 
-
         response = data_client.instrument.get_option_contracts(
             Category.US_OPTION.name,
             "SPY"
         )
 
-
-        data = response.json()
-
-
-        return data
-
-
+        return response.json()
 
     except Exception as e:
 
@@ -100,9 +93,8 @@ def select_contract(option_type="CALL"):
 
             return {
                 "success": False,
-                "error": "Unexpected Webull response format",
-                "received_type": str(type(contracts)),
-                "received_data": contracts
+                "error": "Unexpected contract format",
+                "data": contracts
             }
 
 
@@ -113,7 +105,6 @@ def select_contract(option_type="CALL"):
         for contract in contracts:
 
             if not isinstance(contract, dict):
-
                 continue
 
 
@@ -129,6 +120,10 @@ def select_contract(option_type="CALL"):
 
                 contract.get("option_type") == option_type
 
+                and
+
+                contract.get("tradable_status") == "OC"
+
             ):
 
                 valid_contracts.append(contract)
@@ -141,14 +136,38 @@ def select_contract(option_type="CALL"):
 
                 "success": False,
 
-                "error": "No matching contracts found",
-
-                "total_contracts_received": len(contracts),
-
-                "first_contract_sample": contracts[0] if contracts else None
+                "error": "No valid contracts found"
 
             }
 
+
+
+        # Prefer contracts closer to the current date
+        today = datetime.now()
+
+
+        def expiration_score(contract):
+
+            try:
+
+                expiration = datetime.strptime(
+                    contract.get("expiration_date"),
+                    "%Y-%m-%d"
+                )
+
+                return abs(
+                    (expiration - today).days - 45
+                )
+
+            except:
+
+                return 99999
+
+
+
+        valid_contracts.sort(
+            key=expiration_score
+        )
 
 
         selected = valid_contracts[0]
@@ -173,7 +192,6 @@ def select_contract(option_type="CALL"):
             }
 
         }
-
 
 
     except Exception as e:
@@ -219,7 +237,6 @@ def debug_market_data():
             ]
 
         }
-
 
     except Exception as e:
 
