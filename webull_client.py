@@ -131,3 +131,62 @@ def paper_buy_spy():
             "success": False,
             "error": str(e)
         }
+
+def test_option_order():
+
+    try:
+
+        trade_client, api_client = get_trade_client()
+
+        account_id = os.environ.get(
+            "WEBULL_ACCOUNT_ID"
+        )
+
+        if not account_id:
+
+            return {
+                "success": False,
+                "error": "Missing WEBULL_ACCOUNT_ID"
+            }
+
+
+        order = [
+            {
+                "combo_type": "NORMAL",
+                "client_order_id": uuid.uuid4().hex,
+                "order_type": "MARKET",
+                "quantity": "1",
+                "side": "BUY",
+                "time_in_force": "DAY",
+                "entrust_type": "QTY",
+                "legs": [
+                    {
+                        "symbol": "SPY260821C00600000",
+                        "instrument_type": "OPTION",
+                        "market": "US",
+                        "side": "BUY",
+                        "quantity": "1"
+                    }
+                ]
+            }
+        ]
+
+
+        response = trade_client.order_v2.place_option(
+            account_id,
+            order
+        )
+
+
+        return {
+            "success": True,
+            "response": response.json()
+        }
+
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
