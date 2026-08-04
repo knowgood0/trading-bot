@@ -20,14 +20,12 @@ def home():
     })
 
 
-
 @app.route("/webull-test")
 def webull_test():
 
     return jsonify(
         test_webull_connection()
     )
-
 
 
 @app.route("/options-test")
@@ -38,7 +36,6 @@ def options_test():
     )
 
 
-
 @app.route("/select-contract")
 def contract_test():
 
@@ -47,11 +44,10 @@ def contract_test():
     )
 
 
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
 
-    data = request.json
+    data = request.json or {}
 
 
     option_type = data.get(
