@@ -3,7 +3,6 @@ from flask import Flask, jsonify
 from webull_client import (
     test_webull_connection,
     test_options,
-    find_contract,
     paper_buy_spy
 )
 
@@ -32,14 +31,6 @@ def options_test():
 
     return jsonify(
         test_options()
-    )
-
-
-@app.route("/find-contract")
-def contract_test():
-
-    return jsonify(
-        find_contract()
     )
 
 
