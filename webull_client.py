@@ -2,7 +2,8 @@ import os
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
-from webull.data.data_client import DataClient
+
+from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
 
 
 def get_clients():
@@ -21,10 +22,9 @@ def get_clients():
         "api.sandbox.webull.com"
     )
 
-    return (
-        TradeClient(api_client),
-        DataClient(api_client)
-    )
+    trade_client = TradeClient(api_client)
+
+    return trade_client, api_client
 
 
 
@@ -32,7 +32,7 @@ def test_webull_connection():
 
     try:
 
-        trade_client, data_client = get_clients()
+        trade_client, api_client = get_clients()
 
         response = trade_client.account_v2.get_account_list()
 
@@ -50,23 +50,32 @@ def test_webull_connection():
 
 
 
-def test_options():
+def find_contract():
 
     try:
 
-        trade_client, data_client = get_clients()
+        trade_client, api_client = get_clients()
 
-        option_symbol = "SPY260821C00600000"
 
-        response = data_client.option_market_data.get_option_snapshot(
-            option_symbol,
-            "US_OPTION"
+        request = GetOptionContractsRequest()
+
+
+        # Try the option chain query
+        request.set_underlying_symbols("SPY")
+        request.set_root_symbol("SPY")
+        request.set_page_size(10)
+
+
+        result = api_client.get_response(
+            request
         )
+
 
         return {
             "success": True,
-            "snapshot": response.json()
+            "contracts": result.json()
         }
+
 
     except Exception as e:
 
@@ -77,11 +86,17 @@ def test_options():
 
 
 
+def test_options():
+
+    return find_contract()
+
+
+
 def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Disabled"
+        "message": "Waiting for automatic contract selection"
     }
 
 
@@ -90,5 +105,5 @@ def test_option_order():
 
     return {
         "success": False,
-        "message": "Waiting for verified option symbol"
+        "message": "Waiting for contract selector"
     }
