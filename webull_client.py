@@ -1,8 +1,8 @@
 import os
+import json
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
-
 from webull.data.request.get_option_contracts_request import GetOptionContractsRequest
 
 
@@ -50,7 +50,7 @@ def test_webull_connection():
 
 
 
-def find_contract():
+def test_options():
 
     try:
 
@@ -60,20 +60,35 @@ def find_contract():
         request = GetOptionContractsRequest()
 
 
-        # Try the option chain query
-        request.set_underlying_symbols("SPY")
-        request.set_root_symbol("SPY")
-        request.set_page_size(10)
+        # REQUIRED BY WEBULL API
+        request.set_category(
+            "US_OPTION"
+        )
 
 
-        result = api_client.get_response(
+        request.set_underlying_symbols(
+            "SPY"
+        )
+
+
+        request.set_status(
+            "LISTING"
+        )
+
+
+        request.set_page_size(
+            10
+        )
+
+
+        response = api_client.get_response(
             request
         )
 
 
         return {
             "success": True,
-            "contracts": result.json()
+            "options": response.json()
         }
 
 
@@ -86,24 +101,9 @@ def find_contract():
 
 
 
-def test_options():
-
-    return find_contract()
-
-
-
 def paper_buy_spy():
 
     return {
         "success": False,
-        "message": "Waiting for automatic contract selection"
-    }
-
-
-
-def test_option_order():
-
-    return {
-        "success": False,
-        "message": "Waiting for contract selector"
+        "message": "Disabled until option contract lookup works."
     }
