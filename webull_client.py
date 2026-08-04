@@ -56,13 +56,43 @@ def get_spy_price():
 
         _, data_client = get_clients()
 
-        response = data_client.market_data.get_quotes(
-            ["SPY"]
-        )
+        attempts = []
+
+
+        categories = [
+            "US_STOCK",
+            "STOCK",
+            "EQUITY"
+        ]
+
+
+        for category in categories:
+
+            try:
+
+                response = data_client.market_data.get_quotes(
+                    ["SPY"],
+                    category
+                )
+
+                return {
+                    "success": True,
+                    "category_used": category,
+                    "spy_quote": response.json()
+                }
+
+
+            except Exception as e:
+
+                attempts.append({
+                    "category": category,
+                    "error": str(e)
+                })
+
 
         return {
-            "success": True,
-            "spy_quote": response.json()
+            "success": False,
+            "attempts": attempts
         }
 
 
@@ -104,18 +134,42 @@ def debug_market_data():
 
 def test_options():
 
-    return {
-        "success": True,
-        "message": "Options connection ready"
-    }
+    try:
+
+        _, data_client = get_clients()
+
+        return {
+
+            "success": True,
+
+            "option_methods": [
+                x for x in dir(data_client.option_market_data)
+                if not x.startswith("_")
+            ]
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+            "error": str(e)
+
+        }
 
 
 
 def select_contract():
 
     return {
+
         "success": True,
-        "message": "Contract selector waiting for price feed"
+
+        "message":
+        "Contract selector waiting for SPY price feed."
+
     }
 
 
@@ -123,6 +177,10 @@ def select_contract():
 def paper_buy_spy():
 
     return {
+
         "success": True,
-        "message": "Paper order waiting"
+
+        "message":
+        "Paper order waiting for contract selection."
+
     }
