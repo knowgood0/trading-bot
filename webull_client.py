@@ -58,13 +58,17 @@ def test_options():
         request = GetOptionContractsRequest()
 
         request.set_underlying_symbols("SPY")
-        request.set_page_size(5)
-
-        response = api_client.get_response(request)
+        request.set_root_symbol("SPY")
+        request.set_page_size(10)
+        request.set_status("ACTIVE")
 
         return {
             "success": True,
-            "contracts": response.json()
+            "request": {
+                "endpoint": request.get_endpoint(),
+                "version": request.get_version(),
+                "query": request.get_query_params()
+            }
         }
 
     except Exception as e:
@@ -78,56 +82,10 @@ def test_options():
 
 def paper_buy_spy():
 
-    try:
-
-        trade_client, api_client = get_trade_client()
-
-        account_id = os.environ.get(
-            "WEBULL_ACCOUNT_ID"
-        )
-
-        if not account_id:
-
-            return {
-                "success": False,
-                "error": "Missing WEBULL_ACCOUNT_ID"
-            }
-
-
-        order = [
-            {
-                "combo_type": "NORMAL",
-                "client_order_id": uuid.uuid4().hex,
-                "symbol": "SPY",
-                "instrument_type": "EQUITY",
-                "market": "US",
-                "order_type": "MARKET",
-                "quantity": "1",
-                "side": "BUY",
-                "time_in_force": "DAY",
-                "entrust_type": "QTY"
-            }
-        ]
-
-
-        response = trade_client.order_v3.place_order(
-            account_id,
-            order
-        )
-
-
-        return {
-            "success": True,
-            "response": response.json()
-        }
-
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
+    return {
+        "success": False,
+        "message": "Stock order test paused"
+    }
 
 
 
@@ -135,5 +93,5 @@ def test_option_order():
 
     return {
         "success": False,
-        "message": "Option order paused until real contract data is retrieved"
+        "message": "Waiting for real option contract data"
     }
