@@ -42,6 +42,7 @@ def get_clients():
 def test_webull_connection():
 
     try:
+
         trade_client, _ = get_clients()
 
         response = trade_client.account_v2.get_account_list()
@@ -238,7 +239,9 @@ def select_contract(option_type="CALL"):
             "error": str(e)
 
         }
-    def get_option_price(option_symbol):
+
+
+def get_option_price(option_symbol):
 
     try:
 
@@ -260,3 +263,228 @@ def select_contract(option_type="CALL"):
             "success": False,
             "error": str(e)
         }
+    def debug_option_chain():
+
+    try:
+
+        contracts = get_option_contracts()
+
+        return {
+
+            "success": True,
+
+            "total_contracts": len(contracts),
+
+            "sample_contracts": contracts[:10]
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
+def debug_market_data():
+
+    try:
+
+        _, data_client = get_clients()
+
+        return {
+
+            "success": True,
+
+            "instrument_methods": [
+
+                x for x in dir(data_client.instrument)
+
+                if not x.startswith("_")
+
+            ]
+
+        }
+
+
+    except Exception as e:
+
+        return {
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+
+
+def paper_buy_spy(option_type="CALL"):
+
+    global paper_trade
+
+
+    if paper_trade["open"]:
+
+        return {
+
+            "success": False,
+
+            "error": "A paper trade is already open",
+
+            "trade": paper_trade
+
+        }
+
+
+
+    contract_result = select_contract(option_type)
+
+
+    if not contract_result.get("success"):
+
+        return contract_result
+
+
+
+    spy_price = contract_result.get("spy_price")
+
+
+    paper_trade = {
+
+        "open": True,
+
+        "contract": contract_result["selected_contract"],
+
+        "entry_price": spy_price,
+
+        "entry_time": datetime.now().isoformat(),
+
+        "exit_price": None,
+
+        "profit_loss": None
+
+    }
+
+
+    return {
+
+        "success": True,
+
+        "message": "Paper BUY executed",
+
+        "trade": paper_trade
+
+    }
+
+
+
+def paper_sell_spy():
+
+    global paper_trade
+
+
+    if not paper_trade["open"]:
+
+        return {
+
+            "success": False,
+
+            "error": "No open paper trade"
+
+        }
+
+
+
+    current_price = extract_spy_price()
+
+
+    if current_price is None:
+
+        return {
+
+            "success": False,
+
+            "error": "Unable to get current SPY price"
+
+        }
+
+
+
+    entry = paper_trade["entry_price"]
+
+
+    if entry is None:
+
+        return {
+
+            "success": False,
+
+            "error": "Missing entry price"
+
+        }
+
+
+
+    profit_loss = (
+
+        (current_price - entry)
+
+        /
+
+        entry
+
+    ) * 100
+
+
+
+    paper_trade["exit_price"] = current_price
+
+    paper_trade["profit_loss"] = round(
+        profit_loss,
+        2
+    )
+
+    paper_trade["open"] = False
+
+
+
+    return {
+
+        "success": True,
+
+        "message": "Paper SELL executed",
+
+        "trade": paper_trade
+
+    }
+
+
+
+def paper_trade_status():
+
+    return {
+
+        "success": True,
+
+        "trade": paper_trade
+
+    }
+
+
+
+def test_options():
+
+    return {
+
+        "success": True,
+
+        "message": "Options system online"
+
+    }
