@@ -263,7 +263,8 @@ def get_option_price(option_symbol):
             "success": False,
             "error": str(e)
         }
-    def debug_option_chain():
+        
+def debug_option_chain():
 
     try:
 
