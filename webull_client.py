@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime, timedelta
 
 from webull.core.client import ApiClient
@@ -7,14 +8,52 @@ from webull.data.data_client import DataClient
 from webull.data.common.category import Category
 
 
-paper_trade = {
+TRADE_FILE = "paper_trade.json"
+
+DEFAULT_TRADE = {
     "open": False,
     "contract": None,
     "entry_price": None,
     "entry_time": None,
     "exit_price": None,
-    "profit_loss": None
+    "profit_loss": None,
+    "pricing_mode": "UNDERLYING_ONLY"
 }
+
+
+def _ensure_trade_file():
+
+    if not os.path.exists(TRADE_FILE):
+
+        with open(TRADE_FILE, "w") as f:
+            json.dump(DEFAULT_TRADE, f, indent=2)
+
+
+def load_trade():
+
+    _ensure_trade_file()
+
+    try:
+
+        with open(TRADE_FILE, "r") as f:
+            trade = json.load(f)
+
+        if "pricing_mode" not in trade:
+            trade["pricing_mode"] = "UNDERLYING_ONLY"
+
+        return trade
+
+    except Exception:
+
+        return dict(DEFAULT_TRADE)
+
+
+def save_trade(trade):
+
+    with open(TRADE_FILE, "w") as f:
+        json.dump(trade, f, indent=2)
+
+    return trade
 
 
 def get_clients():
@@ -328,7 +367,7 @@ def debug_market_data():
 
 def paper_buy_spy(option_type="CALL"):
 
-    global paper_trade
+    paper_trade = load_trade()
 
 
     if paper_trade["open"]:
@@ -369,9 +408,14 @@ def paper_buy_spy(option_type="CALL"):
 
         "exit_price": None,
 
-        "profit_loss": None
+        "profit_loss": None,
+
+        "pricing_mode": "UNDERLYING_ONLY"
 
     }
+
+
+    save_trade(paper_trade)
 
 
     return {
@@ -388,7 +432,7 @@ def paper_buy_spy(option_type="CALL"):
 
 def paper_sell_spy():
 
-    global paper_trade
+    paper_trade = load_trade()
 
 
     if not paper_trade["open"]:
@@ -454,6 +498,11 @@ def paper_sell_spy():
 
     paper_trade["open"] = False
 
+    paper_trade["pricing_mode"] = "UNDERLYING_ONLY"
+
+
+    save_trade(paper_trade)
+
 
 
     return {
@@ -469,6 +518,8 @@ def paper_sell_spy():
 
 
 def paper_trade_status():
+
+    paper_trade = load_trade()
 
     return {
 
