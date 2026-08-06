@@ -141,8 +141,11 @@ def webhook():
 
         data = request.json
 
+        app.logger.info(f"Webhook received: {data}")
 
         if not data:
+
+            app.logger.error("No JSON payload received")
 
             return jsonify({
 
@@ -175,11 +178,9 @@ def webhook():
                 option_type
             )
 
-
         elif action.upper() == "SELL":
 
             trade_result = paper_sell_spy()
-
 
         else:
 
@@ -191,6 +192,8 @@ def webhook():
 
             }
 
+
+        app.logger.info(f"Trade result: {trade_result}")
 
 
         return jsonify({
@@ -213,6 +216,8 @@ def webhook():
 
 
     except Exception as e:
+
+        app.logger.exception("Webhook exception")
 
         return jsonify({
 
