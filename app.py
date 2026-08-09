@@ -2,14 +2,16 @@ from flask import Flask, request, jsonify
 
 from webull_client import (
     test_webull_connection,
-    select_contract,
+    select_0dte_atm_contract,
     get_spy_price,
     get_option_price,
     debug_option_chain,
+    debug_0dte_selection,
     debug_market_data,
     paper_buy_spy,
     paper_sell_spy,
     paper_trade_status,
+    paper_trade_history,
     test_options
 )
 
@@ -21,11 +23,11 @@ app = Flask(__name__)
 def home():
 
     return jsonify({
-
         "status": "Trading bot online",
-
-        "message": "Webull sandbox connected"
-
+        "message": (
+            "Webull sandbox connected - "
+            "0DTE ATM options mode"
+        )
     })
 
 
@@ -43,10 +45,18 @@ def select_contract_test():
     option_type = request.args.get(
         "option_type",
         "CALL"
-    )
+    ).upper()
 
     return jsonify(
-        select_contract(option_type)
+        select_0dte_atm_contract(option_type)
+    )
+
+
+@app.route("/debug-0dte")
+def debug_0dte_test():
+
+    return jsonify(
+        debug_0dte_selection()
     )
 
 
@@ -61,20 +71,14 @@ def spy_price_test():
 @app.route("/option-price")
 def option_price_test():
 
-    symbol = request.args.get(
-        "symbol"
-    )
+    symbol = request.args.get("symbol")
 
     if not symbol:
 
         return jsonify({
-
             "success": False,
-
             "error": "Missing option symbol"
-
         })
-
 
     return jsonify(
         get_option_price(symbol)
@@ -111,7 +115,7 @@ def paper_buy_test():
     option_type = request.args.get(
         "option_type",
         "CALL"
-    )
+    ).upper()
 
     return jsonify(
         paper_buy_spy(option_type)
@@ -134,6 +138,14 @@ def paper_status_test():
     )
 
 
+@app.route("/paper-history")
+def paper_history_test():
+
+    return jsonify(
+        paper_trade_history()
+    )
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
 
@@ -148,92 +160,56 @@ def webhook():
             app.logger.error("No JSON payload received")
 
             return jsonify({
-
                 "success": False,
-
                 "error": "No JSON payload received"
-
             })
 
+        symbol = data.get("symbol", "SPY")
+        action = data.get("action", "BUY").upper()
+        option_type = data.get("option_type", "CALL").upper()
 
-        symbol = data.get(
-            "symbol",
-            "SPY"
-        )
+        if action == "BUY":
 
-        action = data.get(
-            "action",
-            "BUY"
-        )
+            trade_result = paper_buy_spy(option_type)
 
-        option_type = data.get(
-            "option_type",
-            "CALL"
-        )
-
-
-        if action.upper() == "BUY":
-
-            trade_result = paper_buy_spy(
-                option_type
-            )
-
-        elif action.upper() == "SELL":
+        elif action == "SELL":
 
             trade_result = paper_sell_spy()
 
         else:
 
             trade_result = {
-
                 "success": False,
-
-                "error": "Unknown action"
-
+                "error": f"Unknown action: {action}"
             }
-
 
         app.logger.info(f"Trade result: {trade_result}")
 
-
         return jsonify({
-
             "success": True,
 
             "received_signal": {
-
                 "symbol": symbol,
-
                 "action": action,
-
                 "option_type": option_type
-
             },
 
             "trade_result": trade_result
-
         })
-
 
     except Exception as e:
 
         app.logger.exception("Webhook exception")
 
         return jsonify({
-
             "success": False,
-
             "error": str(e)
-
         })
 
 
 if __name__ == "__main__":
 
     app.run(
-
         host="0.0.0.0",
-
         port=5000
-
     )
