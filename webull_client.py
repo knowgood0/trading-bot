@@ -2,7 +2,6 @@ import os
 import json
 import sqlite3
 import urllib.request
-import urllib.error
 from datetime import datetime
 
 from webull.core.client import ApiClient
@@ -167,7 +166,13 @@ def save_trade(trade):
     connection.close()
 
 
-def close_trade(trade_id, exit_price, exit_premium, profit_loss, pricing_mode):
+def close_trade(
+    trade_id,
+    exit_price,
+    exit_premium,
+    profit_loss,
+    pricing_mode
+):
     _ensure_database()
 
     connection = _connect_db()
@@ -230,11 +235,16 @@ def send_to_google_sheets(data):
             method="POST"
         )
 
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(
+            request,
+            timeout=15
+        ) as response:
+
             response_body = response.read().decode("utf-8")
 
         try:
             return json.loads(response_body)
+
         except Exception:
             return {
                 "success": True,
@@ -388,10 +398,17 @@ def get_option_contracts(option_type="CALL"):
         result = response.json()
 
         if isinstance(result, dict):
-            if "data" in result and isinstance(result["data"], list):
+
+            if (
+                "data" in result
+                and isinstance(result["data"], list)
+            ):
                 return result["data"]
 
-            if "items" in result and isinstance(result["items"], list):
+            if (
+                "items" in result
+                and isinstance(result["items"], list)
+            ):
                 return result["items"]
 
         return result
@@ -406,7 +423,10 @@ def select_0dte_atm_contract(option_type="CALL"):
     try:
         contracts = get_option_contracts(option_type)
 
-        if isinstance(contracts, dict) and "error" in contracts:
+        if (
+            isinstance(contracts, dict)
+            and "error" in contracts
+        ):
             return {
                 "success": False,
                 "error": contracts["error"]
@@ -431,6 +451,7 @@ def select_0dte_atm_contract(option_type="CALL"):
         valid = []
 
         for contract in contracts:
+
             try:
                 expiration = (
                     contract.get("expiration_date")
@@ -441,9 +462,13 @@ def select_0dte_atm_contract(option_type="CALL"):
                 if isinstance(expiration, str):
                     expiration = expiration[:10]
 
-                strike = float(contract.get("strike_price"))
+                strike = float(
+                    contract.get("strike_price")
+                )
 
-                contract_type = contract.get("option_type")
+                contract_type = contract.get(
+                    "option_type"
+                )
 
                 if (
                     contract.get("def_type") == "STANDARD"
@@ -460,7 +485,10 @@ def select_0dte_atm_contract(option_type="CALL"):
         if not valid:
             return {
                 "success": False,
-                "error": "No valid 0DTE contracts found for today"
+                "error": (
+                    "No valid 0DTE contracts found "
+                    "for today"
+                )
             }
 
         valid.sort(
@@ -499,9 +527,12 @@ def get_option_price(option_symbol):
     try:
         _, data_client = get_clients()
 
-        response = data_client.option_market_data.get_option_snapshot(
-            option_symbol,
-            Category.US_OPTION.name
+        response = (
+            data_client.option_market_data
+            .get_option_snapshot(
+                option_symbol,
+                Category.US_OPTION.name
+            )
         )
 
         data = response.json()
@@ -510,8 +541,10 @@ def get_option_price(option_symbol):
 
         if isinstance(data, list) and data:
             item = data[0]
+
         elif isinstance(data, dict):
             item = data
+
         else:
             item = {}
 
@@ -523,6 +556,7 @@ def get_option_price(option_symbol):
             "close",
             "mark_price"
         ):
+
             if item.get(field) is not None:
                 premium = float(item[field])
                 break
@@ -549,16 +583,23 @@ def paper_buy_spy(option_type="CALL"):
     existing_trade = load_open_trade()
 
     if existing_trade:
+
         return {
             "success": False,
             "error": "A paper trade is already open",
             "trade": existing_trade
         }
 
-    contract_result = select_0dte_atm_contract(option_type)
+    contract_result = select_0dte_atm_contract(
+        option_type
+    )
 
     if not contract_result.get("success"):
-        error = contract_result.get("error", "Contract selection failed")
+
+        error = contract_result.get(
+            "error",
+            "Contract selection failed"
+        )
 
         journal_trade(
             event="BUY_FAILED",
@@ -571,20 +612,37 @@ def paper_buy_spy(option_type="CALL"):
 
         return contract_result
 
-    selected = contract_result["selected_contract"]
+    selected = contract_result[
+        "selected_contract"
+    ]
 
-    spy_price = contract_result.get("spy_price")
+    spy_price = contract_result.get(
+        "spy_price"
+    )
 
-    contract_symbol = selected.get("symbol")
-    expiration = selected.get("expiration")
-    strike = selected.get("strike")
+    contract_symbol = selected.get(
+        "symbol"
+    )
 
-    premium_result = get_option_price(contract_symbol)
+    expiration = selected.get(
+        "expiration"
+    )
 
-    entry_premium = premium_result.get("premium")
+    strike = selected.get(
+        "strike"
+    )
+
+    premium_result = get_option_price(
+        contract_symbol
+    )
+
+    entry_premium = premium_result.get(
+        "premium"
+    )
 
     if entry_premium is not None:
         pricing_mode = "OPTION_PREMIUM"
+
     else:
         pricing_mode = "UNDERLYING_ONLY"
 
@@ -643,6 +701,7 @@ def paper_sell_spy():
     paper_trade = load_open_trade()
 
     if not paper_trade:
+
         journal_trade(
             event="SELL_FAILED",
             action="SELL",
@@ -659,24 +718,45 @@ def paper_sell_spy():
     current_spy_price = extract_spy_price()
 
     if current_spy_price is None:
+
+        journal_trade(
+            event="SELL_FAILED",
+            action="SELL",
+            symbol="SPY",
+            contract=paper_trade.get(
+                "contract"
+            ),
+            result="FAILED",
+            error="Unable to get current SPY price"
+        )
+
         return {
             "success": False,
             "error": "Unable to get current SPY price"
         }
 
-    contract_symbol = paper_trade.get("contract")
+    contract_symbol = paper_trade.get(
+        "contract"
+    )
 
-    premium_result = get_option_price(contract_symbol)
+    premium_result = get_option_price(
+        contract_symbol
+    )
 
-    exit_premium = premium_result.get("premium")
+    exit_premium = premium_result.get(
+        "premium"
+    )
 
-    entry_premium = paper_trade.get("entry_premium")
+    entry_premium = paper_trade.get(
+        "entry_premium"
+    )
 
     if (
         entry_premium is not None
         and exit_premium is not None
         and entry_premium != 0
     ):
+
         profit_loss = (
             (exit_premium - entry_premium)
             / entry_premium
@@ -685,9 +765,25 @@ def paper_sell_spy():
         pricing_mode = "OPTION_PREMIUM"
 
     else:
-        entry_spy_price = paper_trade.get("entry_price")
 
-        if entry_spy_price is None or entry_spy_price == 0:
+        entry_spy_price = paper_trade.get(
+            "entry_price"
+        )
+
+        if (
+            entry_spy_price is None
+            or entry_spy_price == 0
+        ):
+
+            journal_trade(
+                event="SELL_FAILED",
+                action="SELL",
+                symbol="SPY",
+                contract=contract_symbol,
+                result="FAILED",
+                error="Missing SPY entry price"
+            )
+
             return {
                 "success": False,
                 "error": "Missing SPY entry price"
@@ -700,4 +796,122 @@ def paper_sell_spy():
 
         pricing_mode = "UNDERLYING_ONLY"
 
-    profit_loss = round(profit_loss, 
+    profit_loss = round(
+        profit_loss,
+        2
+    )
+
+    close_trade(
+        trade_id=paper_trade["id"],
+        exit_price=current_spy_price,
+        exit_premium=exit_premium,
+        profit_loss=profit_loss,
+        pricing_mode=pricing_mode
+    )
+
+    closed_trade = load_latest_trade()
+
+    google_result = journal_trade(
+        event="SELL",
+        action="SELL",
+        symbol="SPY",
+        option_type=paper_trade.get(
+            "option_type"
+        ),
+        contract=contract_symbol,
+        expiration=paper_trade.get(
+            "expiration"
+        ),
+        strike=paper_trade.get(
+            "strike"
+        ),
+        spy_price=current_spy_price,
+        option_premium=exit_premium,
+        entry_price=paper_trade.get(
+            "entry_price"
+        ),
+        exit_price=current_spy_price,
+        profit_loss=profit_loss,
+        pricing_mode=pricing_mode,
+        result="CLOSED",
+        error=(
+            premium_result.get("error")
+            if exit_premium is None
+            else ""
+        )
+    )
+
+    return {
+        "success": True,
+        "message": "Paper SELL executed",
+        "trade": closed_trade,
+        "google_sheets": google_result
+    }
+
+
+def paper_trade_status():
+    trade = load_open_trade()
+
+    if trade is None:
+        trade = load_latest_trade()
+
+    return {
+        "success": True,
+        "trade": trade
+    }
+
+
+def test_options():
+    return {
+        "success": True,
+        "message": "Options system online"
+    }
+
+
+def debug_option_chain():
+    try:
+
+        contracts = get_option_contracts()
+
+        if not isinstance(contracts, list):
+
+            return {
+                "success": False,
+                "error": "Unexpected option contract response",
+                "data": contracts
+            }
+
+        return {
+            "success": True,
+            "total_contracts": len(contracts),
+            "sample_contracts": contracts[:10]
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def debug_market_data():
+    try:
+
+        _, data_client = get_clients()
+
+        return {
+            "success": True,
+            "instrument_methods": [
+                x
+                for x in dir(data_client.instrument)
+                if not x.startswith("_")
+            ]
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
