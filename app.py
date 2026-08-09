@@ -11,6 +11,7 @@ from webull_client import (
     paper_sell_spy,
     paper_trade_status,
     get_trade_history,
+    journal_trade,
     test_options
 )
 
@@ -20,14 +21,19 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+
     return jsonify({
+
         "status": "Trading bot online",
+
         "message": "Webull sandbox connected"
+
     })
 
 
 @app.route("/webull-test")
 def webull_test():
+
     return jsonify(
         test_webull_connection()
     )
@@ -35,6 +41,7 @@ def webull_test():
 
 @app.route("/select-contract")
 def select_contract_test():
+
     option_type = request.args.get(
         "option_type",
         "CALL"
@@ -47,6 +54,7 @@ def select_contract_test():
 
 @app.route("/spy-price")
 def spy_price_test():
+
     return jsonify(
         get_spy_price()
     )
@@ -54,13 +62,21 @@ def spy_price_test():
 
 @app.route("/option-price")
 def option_price_test():
-    symbol = request.args.get("symbol")
+
+    symbol = request.args.get(
+        "symbol"
+    )
 
     if not symbol:
+
         return jsonify({
+
             "success": False,
+
             "error": "Missing option symbol"
+
         })
+
 
     return jsonify(
         get_option_price(symbol)
@@ -69,6 +85,7 @@ def option_price_test():
 
 @app.route("/debug-option-chain")
 def debug_option_chain_test():
+
     return jsonify(
         debug_option_chain()
     )
@@ -76,6 +93,7 @@ def debug_option_chain_test():
 
 @app.route("/debug-market-data")
 def debug_market_test():
+
     return jsonify(
         debug_market_data()
     )
@@ -83,6 +101,7 @@ def debug_market_test():
 
 @app.route("/options-test")
 def options_test():
+
     return jsonify(
         test_options()
     )
@@ -90,6 +109,7 @@ def options_test():
 
 @app.route("/paper-buy")
 def paper_buy_test():
+
     option_type = request.args.get(
         "option_type",
         "CALL"
@@ -102,6 +122,7 @@ def paper_buy_test():
 
 @app.route("/paper-sell")
 def paper_sell_test():
+
     return jsonify(
         paper_sell_spy()
     )
@@ -109,6 +130,7 @@ def paper_sell_test():
 
 @app.route("/paper-status")
 def paper_status_test():
+
     return jsonify(
         paper_trade_status()
     )
@@ -116,32 +138,97 @@ def paper_status_test():
 
 @app.route("/paper-history")
 def paper_history_test():
+
     try:
-        limit = int(
-            request.args.get(
-                "limit",
-                "50"
-            )
+
+        trades = get_trade_history(50)
+
+        return jsonify({
+
+            "success": True,
+
+            "count": len(trades),
+
+            "trades": trades
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        })
+
+
+@app.route("/google-test")
+def google_test():
+
+    try:
+
+        result = journal_trade(
+
+            event="GOOGLE_TEST",
+
+            action="TEST",
+
+            symbol="SPY",
+
+            option_type="CALL",
+
+            contract="TEST-CONTRACT",
+
+            expiration="TEST",
+
+            strike=0,
+
+            spy_price=0,
+
+            option_premium=0,
+
+            entry_price=0,
+
+            exit_price=0,
+
+            profit_loss=0,
+
+            pricing_mode="TEST",
+
+            result="SUCCESS",
+
+            error=""
+
         )
 
-        limit = max(
-            1,
-            min(limit, 500)
-        )
+        return jsonify({
 
-    except Exception:
-        limit = 50
+            "success": True,
 
-    return jsonify({
-        "success": True,
-        "count": len(get_trade_history(limit)),
-        "trades": get_trade_history(limit)
-    })
+            "message": "Google Sheets test sent",
+
+            "google_sheets": result
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        })
 
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+
     try:
+
         data = request.json
 
         app.logger.info(
@@ -149,13 +236,17 @@ def webhook():
         )
 
         if not data:
+
             app.logger.error(
                 "No JSON payload received"
             )
 
             return jsonify({
+
                 "success": False,
+
                 "error": "No JSON payload received"
+
             })
 
 
@@ -188,8 +279,11 @@ def webhook():
         else:
 
             trade_result = {
+
                 "success": False,
+
                 "error": "Unknown action"
+
             }
 
 
@@ -199,15 +293,21 @@ def webhook():
 
 
         return jsonify({
+
             "success": True,
 
             "received_signal": {
+
                 "symbol": symbol,
+
                 "action": action,
+
                 "option_type": option_type
+
             },
 
             "trade_result": trade_result
+
         })
 
 
@@ -218,13 +318,20 @@ def webhook():
         )
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         })
 
 
 if __name__ == "__main__":
+
     app.run(
+
         host="0.0.0.0",
+
         port=5000
-        )
+
+    )
