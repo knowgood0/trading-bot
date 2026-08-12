@@ -2,7 +2,6 @@ import os
 import json
 import sqlite3
 import urllib.request
-import urllib.error
 import uuid
 from datetime import datetime, timezone
 
@@ -27,21 +26,20 @@ GOOGLE_SHEETS_URL = (
 
 WEBULL_ENDPOINT = "api.sandbox.webull.com"
 
-# IMPORTANT:
-# This is the Webull API account_id, NOT the account number.
+# HARD-CODED SANDBOX ACCOUNT
 #
 # Individual Margin
 # Account number: DEN8YFM7
-# API account_id:  KUHQDSV857TD3JD7VGP73UFQ08
+# API account_id: KUHQDSV857TD3JD7VGP73UFQ08
 #
-# PAPER / SANDBOX ONLY.
+# SANDBOX ONLY.
 WEBULL_ACCOUNT_ID = "KUHQDSV857TD3JD7VGP73UFQ08"
 WEBULL_ACCOUNT_NUMBER = "DEN8YFM7"
 WEBULL_ACCOUNT_NAME = "Individual Margin"
 
 
 # ============================================================
-# TIME
+# TIME / IDS
 # ============================================================
 
 def utc_now():
@@ -56,12 +54,7 @@ def utc_webull_timestamp():
 
 def make_client_order_id(prefix="TV"):
     value = uuid.uuid4().hex.upper()
-
-    client_order_id = (
-        f"{prefix}{value}"
-    )
-
-    return client_order_id[:32]
+    return f"{prefix}{value}"[:32]
 
 
 # ============================================================
@@ -298,9 +291,7 @@ def send_to_google_sheets(data):
             timeout=15
         ) as response:
 
-            response_body = response.read().decode(
-                "utf-8"
-            )
+            response_body = response.read().decode("utf-8")
 
         try:
             return json.loads(response_body)
@@ -331,7 +322,7 @@ def get_open_trade_from_google_sheets():
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "TradingBot/3.0"
+                "User-Agent": "TradingBot/4.0"
             },
             method="GET"
         )
@@ -341,9 +332,7 @@ def get_open_trade_from_google_sheets():
             timeout=15
         ) as response:
 
-            response_body = response.read().decode(
-                "utf-8"
-            )
+            response_body = response.read().decode("utf-8")
 
         result = json.loads(response_body)
 
@@ -358,7 +347,6 @@ def get_open_trade_from_google_sheets():
         return trade
 
     except Exception:
-
         return None
 
 
@@ -433,13 +421,8 @@ def journal_trade(
 
 def get_clients():
 
-    app_key = os.environ.get(
-        "WEBULL_APP_KEY"
-    )
-
-    app_secret = os.environ.get(
-        "WEBULL_APP_SECRET"
-    )
+    app_key = os.environ.get("WEBULL_APP_KEY")
+    app_secret = os.environ.get("WEBULL_APP_SECRET")
 
     if not app_key:
         raise RuntimeError(
@@ -462,18 +445,26 @@ def get_clients():
         WEBULL_ENDPOINT
     )
 
-    trade_client = TradeClient(
-        api_client
-    )
+    trade_client = TradeClient(api_client)
+    data_client = DataClient(api_client)
 
-    data_client = DataClient(
-        api_client
-    )
+    return trade_client, data_client
 
-    return (
-        trade_client,
-        data_client
-    )
+
+def resolve_account():
+    """
+    The trading account is intentionally hard-coded.
+
+    This avoids making an unnecessary account-list API call
+    every time Render wakes up.
+    """
+
+    return {
+        "account_id": WEBULL_ACCOUNT_ID,
+        "account_number": WEBULL_ACCOUNT_NUMBER,
+        "account_name": WEBULL_ACCOUNT_NAME,
+        "environment": "SANDBOX"
+    }
 
 
 def test_webull_connection():
@@ -489,20 +480,10 @@ def test_webull_connection():
 
         return {
             "success": True,
-            "status_code":
-                response.status_code,
-            "account":
-                response.json(),
-            "trading_account": {
-                "account_id":
-                    WEBULL_ACCOUNT_ID,
-                "account_number":
-                    WEBULL_ACCOUNT_NUMBER,
-                "account_name":
-                    WEBULL_ACCOUNT_NAME
-            },
-            "environment":
-                "SANDBOX"
+            "status_code": response.status_code,
+            "account": response.json(),
+            "configured_account": resolve_account(),
+            "environment": "SANDBOX"
         }
 
     except Exception as e:
@@ -510,8 +491,8 @@ def test_webull_connection():
         return {
             "success": False,
             "error": str(e),
-            "environment":
-                "SANDBOX"
+            "configured_account": resolve_account(),
+            "environment": "SANDBOX"
         }
 
 
@@ -519,32 +500,16 @@ def test_webull_connection():
 # ACCOUNT DIAGNOSTIC
 # ============================================================
 
-def _query_account(
-    account_id,
-    account_name
-):
+def _query_account(account_id, account_name):
 
     result = {
-        "account_name":
-            account_name,
-
-        "account_id":
-            account_id,
-
-        "balance":
-            None,
-
-        "positions":
-            None,
-
-        "balance_status":
-            None,
-
-        "positions_status":
-            None,
-
-        "errors":
-            []
+        "account_name": account_name,
+        "account_id": account_id,
+        "balance": None,
+        "positions": None,
+        "balance_status": None,
+        "positions_status": None,
+        "errors": []
     }
 
     try:
@@ -555,9 +520,7 @@ def _query_account(
 
             balance_response = (
                 trade_client.account_v2
-                .get_account_balance(
-                    account_id
-                )
+                .get_account_balance(account_id)
             )
 
             result["balance_status"] = (
@@ -578,9 +541,7 @@ def _query_account(
 
             position_response = (
                 trade_client.account_v2
-                .get_account_position(
-                    account_id
-                )
+                .get_account_position(account_id)
             )
 
             result["positions_status"] = (
@@ -615,35 +576,24 @@ def account_diagnostic():
 
     diagnostic = {
         "success": False,
+        "environment": "SANDBOX",
+        "endpoint": WEBULL_ENDPOINT,
 
-        "environment":
-            "SANDBOX",
-
-        "endpoint":
-            WEBULL_ENDPOINT,
-
-        "configured_account": {
-            "account_id":
-                WEBULL_ACCOUNT_ID,
-
-            "account_number":
-                WEBULL_ACCOUNT_NUMBER,
-
-            "account_name":
-                WEBULL_ACCOUNT_NAME
-        },
+        "configured_account": resolve_account(),
 
         "accounts": {},
 
-        "account_list":
-            None,
+        "account_list": None,
 
-        "account_list_status":
-            None,
+        "account_list_status": None,
 
-        "error":
-            None
+        "error": None
     }
+
+    # --------------------------------------------------------
+    # We still expose account-list diagnostics when explicitly
+    # requested, but nothing in normal startup depends on it.
+    # --------------------------------------------------------
 
     try:
 
@@ -691,6 +641,119 @@ def account_diagnostic():
 
 
 # ============================================================
+# WEBULL POSITIONS
+# ============================================================
+
+def get_webull_positions():
+
+    try:
+
+        trade_client, _ = get_clients()
+
+        response = (
+            trade_client.account_v2
+            .get_account_position(
+                WEBULL_ACCOUNT_ID
+            )
+        )
+
+        return {
+            "success": True,
+            "status_code": response.status_code,
+            "account": resolve_account(),
+            "positions": response.json()
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "account": resolve_account(),
+            "error": str(e)
+        }
+
+
+def get_webull_option_position(option_symbol):
+
+    result = get_webull_positions()
+
+    if not result.get("success"):
+        return result
+
+    positions = result.get("positions")
+
+    if isinstance(positions, dict):
+        if isinstance(
+            positions.get("positions"),
+            list
+        ):
+            positions = positions["positions"]
+
+        elif isinstance(
+            positions.get("data"),
+            list
+        ):
+            positions = positions["data"]
+
+        elif isinstance(
+            positions.get("items"),
+            list
+        ):
+            positions = positions["items"]
+
+    if not isinstance(positions, list):
+
+        return {
+            "success": True,
+            "found": False,
+            "symbol": option_symbol,
+            "positions_response": result
+        }
+
+    matches = []
+
+    for position in positions:
+
+        if not isinstance(position, dict):
+            continue
+
+        symbol = str(
+            position.get("symbol")
+            or ""
+        )
+
+        if symbol == option_symbol:
+
+            matches.append(position)
+
+            continue
+
+        legs = position.get("legs")
+
+        if isinstance(legs, list):
+
+            for leg in legs:
+
+                if not isinstance(leg, dict):
+                    continue
+
+                if str(
+                    leg.get("symbol")
+                    or ""
+                ) == option_symbol:
+
+                    matches.append(position)
+                    break
+
+    return {
+        "success": True,
+        "found": len(matches) > 0,
+        "symbol": option_symbol,
+        "positions": matches
+    }
+
+
+# ============================================================
 # SPY PRICE
 # ============================================================
 
@@ -710,8 +773,7 @@ def get_spy_price():
 
         return {
             "success": True,
-            "data":
-                response.json()
+            "data": response.json()
         }
 
     except Exception as e:
@@ -733,10 +795,7 @@ def extract_spy_price():
 
     try:
 
-        if (
-            isinstance(data, list)
-            and len(data) > 0
-        ):
+        if isinstance(data, list) and data:
 
             return float(
                 data[0]["price"]
@@ -759,9 +818,7 @@ def extract_spy_price():
 # OPTION CONTRACTS
 # ============================================================
 
-def get_option_contracts(
-    option_type="CALL"
-):
+def get_option_contracts(option_type="CALL"):
 
     try:
 
@@ -789,29 +846,14 @@ def get_option_contracts(
         response = (
             data_client.instrument
             .get_option_contracts(
-                category=
-                    Category.US_OPTION.name,
-
-                underlying_symbols=
-                    "SPY",
-
-                status=
-                    "LISTING",
-
-                start_date=
-                    today,
-
-                end_date=
-                    today,
-
-                option_type=
-                    normalized_type,
-
-                style=
-                    "AMERICAN",
-
-                page_size=
-                    1000
+                category=Category.US_OPTION.name,
+                underlying_symbols="SPY",
+                status="LISTING",
+                start_date=today,
+                end_date=today,
+                option_type=normalized_type,
+                style="AMERICAN",
+                page_size=1000
             )
         )
 
@@ -820,23 +862,19 @@ def get_option_contracts(
         if isinstance(result, dict):
 
             if (
-                "data" in result
-                and isinstance(
-                    result["data"],
+                isinstance(
+                    result.get("data"),
                     list
                 )
             ):
-
                 return result["data"]
 
             if (
-                "items" in result
-                and isinstance(
-                    result["items"],
+                isinstance(
+                    result.get("items"),
                     list
                 )
             ):
-
                 return result["items"]
 
         return result
@@ -848,9 +886,7 @@ def get_option_contracts(
         }
 
 
-def select_0dte_atm_contract(
-    option_type="CALL"
-):
+def select_0dte_atm_contract(option_type="CALL"):
 
     try:
 
@@ -869,30 +905,21 @@ def select_0dte_atm_contract(
                     "Option type must be CALL or PUT"
             }
 
-        contracts = (
-            get_option_contracts(
-                normalized_type
-            )
+        contracts = get_option_contracts(
+            normalized_type
         )
 
         if (
-            isinstance(
-                contracts,
-                dict
-            )
+            isinstance(contracts, dict)
             and "error" in contracts
         ):
 
             return {
                 "success": False,
-                "error":
-                    contracts["error"]
+                "error": contracts["error"]
             }
 
-        if not isinstance(
-            contracts,
-            list
-        ):
+        if not isinstance(contracts, list):
 
             return {
                 "success": False,
@@ -900,9 +927,7 @@ def select_0dte_atm_contract(
                     "Unexpected option contract response"
             }
 
-        spy_price = (
-            extract_spy_price()
-        )
+        spy_price = extract_spy_price()
 
         if spy_price is None:
 
@@ -932,14 +957,9 @@ def select_0dte_atm_contract(
                     or ""
                 )
 
-                if isinstance(
-                    expiration,
-                    str
-                ):
-
-                    expiration = (
-                        expiration[:10]
-                    )
+                expiration = str(
+                    expiration
+                )[:10]
 
                 strike_value = (
                     contract.get(
@@ -986,18 +1006,13 @@ def select_0dte_atm_contract(
                     def_type == "STANDARD"
                     and style == "AMERICAN"
                     and tradable_status == "OC"
-                    and contract_type ==
-                        normalized_type
-                    and expiration ==
-                        today
+                    and contract_type == normalized_type
+                    and expiration == today
                 ):
 
-                    valid.append(
-                        contract
-                    )
+                    valid.append(contract)
 
             except Exception:
-
                 continue
 
         if not valid:
@@ -1025,14 +1040,17 @@ def select_0dte_atm_contract(
         return {
             "success": True,
 
-            "spy_price":
-                spy_price,
+            "spy_price": spy_price,
 
             "selected_contract": {
 
                 "symbol":
+                    selected.get("symbol"),
+
+                "underlying_symbol":
                     selected.get(
-                        "symbol"
+                        "underlying_symbol",
+                        "SPY"
                     ),
 
                 "type":
@@ -1053,6 +1071,11 @@ def select_0dte_atm_contract(
                         )
                     ),
 
+                "instrument_id":
+                    selected.get(
+                        "instrument_id"
+                    ),
+
                 "raw":
                     selected
             }
@@ -1066,9 +1089,7 @@ def select_0dte_atm_contract(
         }
 
 
-def select_contract(
-    option_type="CALL"
-):
+def select_contract(option_type="CALL"):
 
     return select_0dte_atm_contract(
         option_type
@@ -1079,9 +1100,7 @@ def select_contract(
 # OPTION PRICING
 # ============================================================
 
-def get_option_price(
-    option_symbol
-):
+def get_option_price(option_symbol):
 
     try:
 
@@ -1098,10 +1117,7 @@ def get_option_price(
 
         data = response.json()
 
-        if (
-            isinstance(data, list)
-            and data
-        ):
+        if isinstance(data, list) and data:
 
             item = data[0]
 
@@ -1115,10 +1131,12 @@ def get_option_price(
 
         premium = None
 
+        # Webull's current option snapshot uses "price"
+        # for last traded price.
         for field in (
+            "price",
             "latest_price",
             "last_price",
-            "price",
             "last",
             "close",
             "mark_price"
@@ -1148,17 +1166,7 @@ def get_option_price(
 
 
 # ============================================================
-# WEBULL PAPER ORDER
-#
-# IMPORTANT:
-# We intentionally use the documented U.S. Sandbox REST
-# order endpoint here instead of TradeClient.place_option().
-#
-# The current Python SDK's place_option() implementation says
-# it is for Hong Kong brokerage clients and does not support
-# U.S. clients.
-#
-# The REST endpoint supports U.S. option orders.
+# ACTUAL WEBULL SANDBOX OPTION ORDER
 # ============================================================
 
 def _webull_place_option_order(
@@ -1167,98 +1175,62 @@ def _webull_place_option_order(
     side,
     quantity,
     limit_price,
-    position_intent
+    position_intent,
+    strike_price,
+    expiration
 ):
-
-    app_key = os.environ.get(
-        "WEBULL_APP_KEY"
-    )
-
-    app_secret = os.environ.get(
-        "WEBULL_APP_SECRET"
-    )
-
-    if not app_key:
-        return {
-            "success": False,
-            "error":
-                "WEBULL_APP_KEY environment variable is missing"
-        }
-
-    if not app_secret:
-        return {
-            "success": False,
-            "error":
-                "WEBULL_APP_SECRET environment variable is missing"
-        }
-
-    # --------------------------------------------------------
-    # IMPORTANT:
-    # We are NOT manually implementing Webull authentication.
-    #
-    # The SDK is responsible for authentication/token handling.
-    #
-    # The SDK exposes the authenticated ApiClient through the
-    # TradeClient/DataClient construction, but the current
-    # U.S. option wrapper is not supported.
-    #
-    # Therefore we use the authenticated client's HTTP request
-    # mechanism if available.
-    # --------------------------------------------------------
 
     try:
 
         trade_client, _ = get_clients()
 
-        api_client = getattr(
-            trade_client,
-            "client",
-            None
-        )
+        normalized_type = str(
+            option_type
+        ).upper()
 
-        if api_client is None:
+        normalized_side = str(
+            side
+        ).upper()
+
+        if normalized_type not in (
+            "CALL",
+            "PUT"
+        ):
 
             return {
                 "success": False,
                 "error":
-                    "Unable to access authenticated Webull API client"
+                    "Invalid option type"
             }
 
-        # The TradeClient itself stores the ApiClient as
-        # internal state in the current SDK.
+        if normalized_side not in (
+            "BUY",
+            "SELL"
+        ):
+
+            return {
+                "success": False,
+                "error":
+                    "Invalid order side"
+            }
+
+        client_order_id = make_client_order_id(
+            "TV"
+        )
+
+        # ----------------------------------------------------
+        # IMPORTANT:
         #
-        # Depending on SDK version this may be exposed as
-        # _client rather than client.
-        if hasattr(
-            trade_client,
-            "_client"
-        ):
-
-            api_client = trade_client._client
-
+        # symbol = underlying symbol, e.g. SPY
+        #
+        # The actual option contract is identified by:
+        # strike_price
+        # option_expire_date
+        # option_type
+        #
+        # This is the structure required by Webull's current
+        # U.S. options API.
         # ----------------------------------------------------
-        # We deliberately do NOT guess at an SDK method here.
-        # ----------------------------------------------------
-
-        if not hasattr(
-            api_client,
-            "get_response"
-        ):
-
-            return {
-                "success": False,
-                "error":
-                    "Authenticated Webull client does not expose "
-                    "the expected request interface"
-            }
-
-        # ----------------------------------------------------
-        # Build the exact U.S. option order payload.
-        # ----------------------------------------------------
-
-        client_order_id = (
-            make_client_order_id("TV")
-        )
 
         order = {
 
@@ -1284,7 +1256,7 @@ def _webull_place_option_order(
                 "US",
 
             "side":
-                side,
+                normalized_side,
 
             "order_type":
                 "LIMIT",
@@ -1304,7 +1276,6 @@ def _webull_place_option_order(
             "legs": [
 
                 {
-
                     "instrument_type":
                         "OPTION",
 
@@ -1312,23 +1283,19 @@ def _webull_place_option_order(
                         "US",
 
                     "option_expire_date":
-                        datetime.now(
-                            timezone.utc
-                        ).strftime(
-                            "%Y-%m-%d"
-                        ),
+                        str(expiration)[:10],
 
                     "option_type":
-                        option_type,
+                        normalized_type,
 
                     "quantity":
                         str(int(quantity)),
 
                     "side":
-                        side,
+                        normalized_side,
 
                     "strike_price":
-                        "0",
+                        f"{float(strike_price):.2f}",
 
                     "symbol":
                         symbol
@@ -1337,31 +1304,35 @@ def _webull_place_option_order(
         }
 
         # ----------------------------------------------------
-        # The current SDK does not provide a supported U.S.
-        # option wrapper. Return a diagnostic rather than
-        # pretending an order was submitted.
+        # Use Webull's authenticated SDK.
         #
-        # This function will be completed against the exact
-        # installed SDK version after the next diagnostic.
+        # The current official SDK exposes this through
+        # order_v2.place_option().
         # ----------------------------------------------------
 
-        return {
-            "success": False,
-
-            "error":
-                "U.S. option order submission requires the "
-                "authenticated Webull REST order interface; "
-                "the installed SDK's place_option wrapper is "
-                "documented as unsupported for Webull U.S.",
-
-            "account_id":
+        response = (
+            trade_client.order_v2
+            .place_option(
                 WEBULL_ACCOUNT_ID,
+                [order]
+            )
+        )
 
-            "account_number":
-                WEBULL_ACCOUNT_NUMBER,
+        response_data = response.json()
 
-            "environment":
-                "SANDBOX",
+        return {
+            "success": True,
+            "status_code":
+                response.status_code,
+
+            "client_order_id":
+                client_order_id,
+
+            "account":
+                resolve_account(),
+
+            "response":
+                response_data,
 
             "prepared_order":
                 order
@@ -1371,6 +1342,46 @@ def _webull_place_option_order(
 
         return {
             "success": False,
+            "account":
+                resolve_account(),
+            "error": str(e)
+        }
+
+
+# ============================================================
+# ORDER DETAIL
+# ============================================================
+
+def test_order_detail(client_order_id):
+
+    try:
+
+        trade_client, _ = get_clients()
+
+        response = (
+            trade_client.order_v2
+            .get_order_detail(
+                WEBULL_ACCOUNT_ID,
+                client_order_id
+            )
+        )
+
+        return {
+            "success": True,
+            "status_code":
+                response.status_code,
+            "account":
+                resolve_account(),
+            "order":
+                response.json()
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "account":
+                resolve_account(),
             "error": str(e)
         }
 
@@ -1379,9 +1390,7 @@ def _webull_place_option_order(
 # PAPER BUY
 # ============================================================
 
-def paper_buy_spy(
-    option_type="CALL"
-):
+def paper_buy_spy(option_type="CALL"):
 
     normalized_type = str(
         option_type
@@ -1398,14 +1407,6 @@ def paper_buy_spy(
                 "Option type must be CALL or PUT"
         }
 
-    # --------------------------------------------------------
-    # We no longer use Google Sheets/SQLite to decide whether
-    # Webull has a real paper position.
-    #
-    # For the moment, we only use the legacy state as a safety
-    # check while the actual Webull order path is being enabled.
-    # --------------------------------------------------------
-
     existing_trade = load_open_trade()
 
     if existing_trade:
@@ -1413,9 +1414,7 @@ def paper_buy_spy(
         return {
             "success": False,
             "error":
-                "A legacy logged paper trade is already open. "
-                "Close/reset the legacy state before testing "
-                "Webull order submission.",
+                "A logged paper trade is already open.",
             "trade":
                 existing_trade
         }
@@ -1426,9 +1425,7 @@ def paper_buy_spy(
         )
     )
 
-    if not contract_result.get(
-        "success"
-    ):
+    if not contract_result.get("success"):
 
         error = contract_result.get(
             "error",
@@ -1469,6 +1466,22 @@ def paper_buy_spy(
     strike = (
         selected.get("strike")
     )
+
+    if not contract_symbol:
+
+        return {
+            "success": False,
+            "error":
+                "Selected option is missing OCC symbol"
+        }
+
+    if strike is None or expiration is None:
+
+        return {
+            "success": False,
+            "error":
+                "Selected option is missing strike or expiration"
+        }
 
     premium_result = (
         get_option_price(
@@ -1512,23 +1525,23 @@ def paper_buy_spy(
         }
 
     # --------------------------------------------------------
-    # Actual Webull Sandbox BUY attempt.
+    # ACTUAL WEBULL SANDBOX ORDER
     # --------------------------------------------------------
 
     order_result = (
         _webull_place_option_order(
-            symbol=contract_symbol,
+            symbol="SPY",
             option_type=normalized_type,
             side="BUY",
             quantity=1,
             limit_price=entry_premium,
-            position_intent="BUY_TO_OPEN"
+            position_intent="BUY_TO_OPEN",
+            strike_price=strike,
+            expiration=expiration
         )
     )
 
-    if not order_result.get(
-        "success"
-    ):
+    if not order_result.get("success"):
 
         journal_trade(
             event="WEBULL_BUY_FAILED",
@@ -1550,7 +1563,7 @@ def paper_buy_spy(
         return {
             "success": False,
             "message":
-                "Webull Sandbox BUY was NOT submitted",
+                "Webull Sandbox BUY was NOT accepted",
             "contract":
                 contract_symbol,
             "premium":
@@ -1558,10 +1571,6 @@ def paper_buy_spy(
             "order":
                 order_result
         }
-
-    # --------------------------------------------------------
-    # Only record an actual trade after Webull accepts it.
-    # --------------------------------------------------------
 
     entry_time = utc_now()
 
@@ -1602,20 +1611,19 @@ def paper_buy_spy(
 
     return {
         "success": True,
+
         "message":
-            "Webull Sandbox BUY submitted",
-        "account": {
-            "account_id":
-                WEBULL_ACCOUNT_ID,
-            "account_number":
-                WEBULL_ACCOUNT_NUMBER,
-            "account_name":
-                WEBULL_ACCOUNT_NAME
-        },
+            "Webull Sandbox BUY accepted",
+
+        "account":
+            resolve_account(),
+
         "trade":
             trade,
+
         "order":
             order_result,
+
         "google_sheets":
             google_result
     }
@@ -1658,9 +1666,7 @@ def paper_sell_spy():
         }
 
     contract_symbol = (
-        paper_trade.get(
-            "contract"
-        )
+        paper_trade.get("contract")
     )
 
     if not contract_symbol:
@@ -1698,23 +1704,9 @@ def paper_sell_spy():
     )
 
     if (
-        entry_premium is not None
-        and entry_premium != 0
+        entry_premium is None
+        or entry_premium == 0
     ):
-
-        profit_loss = (
-            (
-                exit_premium
-                - entry_premium
-            )
-            / entry_premium
-        ) * 100
-
-        pricing_mode = (
-            "OPTION_PREMIUM"
-        )
-
-    else:
 
         return {
             "success": False,
@@ -1722,10 +1714,20 @@ def paper_sell_spy():
                 "Missing option entry premium"
         }
 
+    profit_loss = (
+        (
+            exit_premium
+            - entry_premium
+        )
+        / entry_premium
+    ) * 100
+
     profit_loss = round(
         profit_loss,
         2
     )
+
+    pricing_mode = "OPTION_PREMIUM"
 
     option_type = str(
         paper_trade.get(
@@ -1734,24 +1736,32 @@ def paper_sell_spy():
         )
     ).upper()
 
+    strike = paper_trade.get(
+        "strike"
+    )
+
+    expiration = paper_trade.get(
+        "expiration"
+    )
+
     # --------------------------------------------------------
-    # Actual Webull Sandbox SELL attempt.
+    # ACTUAL WEBULL SANDBOX SELL
     # --------------------------------------------------------
 
     order_result = (
         _webull_place_option_order(
-            symbol=contract_symbol,
+            symbol="SPY",
             option_type=option_type,
             side="SELL",
             quantity=1,
             limit_price=exit_premium,
-            position_intent="SELL_TO_CLOSE"
+            position_intent="SELL_TO_CLOSE",
+            strike_price=strike,
+            expiration=expiration
         )
     )
 
-    if not order_result.get(
-        "success"
-    ):
+    if not order_result.get("success"):
 
         journal_trade(
             event="WEBULL_SELL_FAILED",
@@ -1759,13 +1769,8 @@ def paper_sell_spy():
             symbol="SPY",
             option_type=option_type,
             contract=contract_symbol,
-            expiration=paper_trade.get(
-                "expiration",
-                ""
-            ),
-            strike=paper_trade.get(
-                "strike"
-            ),
+            expiration=expiration,
+            strike=strike,
             spy_price=current_spy_price,
             option_premium=exit_premium,
             entry_price=paper_trade.get(
@@ -1784,7 +1789,7 @@ def paper_sell_spy():
         return {
             "success": False,
             "message":
-                "Webull Sandbox SELL was NOT submitted",
+                "Webull Sandbox SELL was NOT accepted",
             "contract":
                 contract_symbol,
             "order":
@@ -1825,17 +1830,15 @@ def paper_sell_spy():
 
     return {
         "success": True,
+
         "message":
-            "Webull Sandbox SELL submitted",
-        "account": {
-            "account_id":
-                WEBULL_ACCOUNT_ID,
-            "account_number":
-                WEBULL_ACCOUNT_NUMBER,
-            "account_name":
-                WEBULL_ACCOUNT_NAME
-        },
+            "Webull Sandbox SELL accepted",
+
+        "account":
+            resolve_account(),
+
         "trade": {
+
             "contract":
                 contract_symbol,
 
@@ -1901,7 +1904,8 @@ def paper_trade_status():
 
     return {
         "success": True,
-        "open_trade": trade
+        "open_trade": trade,
+        "account": resolve_account()
     }
 
 
@@ -1926,16 +1930,11 @@ def debug_market_data():
 
 def test_options():
 
-    call = select_contract(
-        "CALL"
-    )
-
-    put = select_contract(
-        "PUT"
-    )
+    call = select_contract("CALL")
+    put = select_contract("PUT")
 
     return {
         "success": True,
         "call": call,
         "put": put
-                }
+        }
