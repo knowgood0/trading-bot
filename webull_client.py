@@ -2,8 +2,6 @@ import os
 import json
 import sqlite3
 import urllib.request
-import urllib.error
-import uuid
 from datetime import datetime, timezone
 
 from webull.core.client import ApiClient
@@ -19,6 +17,14 @@ GOOGLE_SHEETS_URL = (
     "AKfycbzYocjcr-9_YTeaplxao7WLF6aNWi41fDb8z3evhcBot2cy3h9QrU9Q7iePIveY9_mC"
     "/exec"
 )
+
+
+# ============================================================
+# WEBULL ACCOUNT IDS
+# ============================================================
+
+CASH_ACCOUNT_ID = "DEN4YED3"
+MARGIN_ACCOUNT_ID = "DEN8YFM7"
 
 
 # ============================================================
@@ -423,6 +429,7 @@ def test_webull_connection():
 
         return {
             "success": True,
+            "status_code": response.status_code,
             "account": response.json()
         }
 
@@ -435,85 +442,165 @@ def test_webull_connection():
 
 
 # ============================================================
-# WEBULL ACCOUNT HELPERS
+# ACCOUNT DIAGNOSTIC
 # ============================================================
 
-def get_webull_accounts():
+def _query_account(account_id, account_name):
+
+    result = {
+        "account_name": account_name,
+        "account_id": account_id,
+        "balance": None,
+        "positions": None,
+        "balance_status": None,
+        "positions_status": None,
+        "errors": []
+    }
 
     try:
 
         trade_client, _ = get_clients()
 
-        response = (
-            trade_client.account_v2.get_account_list()
-        )
+        # ----------------------------------------------------
+        # BALANCE
+        # ----------------------------------------------------
 
-        data = response.json()
+        try:
 
-        return {
-            "success": True,
-            "accounts": data
-        }
+            balance_response = (
+                trade_client.account_v2
+                .get_account_balance(account_id)
+            )
+
+            result["balance_status"] = (
+                balance_response.status_code
+            )
+
+            result["balance"] = (
+                balance_response.json()
+            )
+
+        except Exception as e:
+
+            result["errors"].append(
+                "BALANCE: " + str(e)
+            )
+
+        # ----------------------------------------------------
+        # POSITIONS
+        # ----------------------------------------------------
+
+        try:
+
+            position_response = (
+                trade_client.account_v2
+                .get_account_position(account_id)
+            )
+
+            result["positions_status"] = (
+                position_response.status_code
+            )
+
+            result["positions"] = (
+                position_response.json()
+            )
+
+        except Exception as e:
+
+            result["errors"].append(
+                "POSITIONS: " + str(e)
+            )
 
     except Exception as e:
 
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        result["errors"].append(
+            "CLIENT: " + str(e)
+        )
+
+    result["success"] = (
+        result["balance_status"] == 200
+        or result["positions_status"] == 200
+    )
+
+    return result
 
 
-def extract_account_id(account_data):
+def account_diagnostic():
 
-    if isinstance(account_data, dict):
+    diagnostic = {
+        "success": False,
+        "environment": "SANDBOX",
+        "endpoint": "api.sandbox.webull.com",
+        "accounts": {},
+        "account_list": None,
+        "account_list_status": None,
+        "error": None
+    }
 
-        for key in (
-            "account_id",
-            "accountId",
-            "id"
-        ):
+    try:
 
-            if account_data.get(key):
-                return str(account_data[key])
+        trade_client, _ = get_clients()
 
-        for key in (
-            "data",
-            "accounts",
-            "items"
-        ):
+        # ----------------------------------------------------
+        # ACCOUNT LIST
+        # ----------------------------------------------------
 
-            nested = account_data.get(key)
+        try:
 
-            if isinstance(nested, list) and nested:
-
-                account_id = extract_account_id(
-                    nested[0]
-                )
-
-                if account_id:
-                    return account_id
-
-            if isinstance(nested, dict):
-
-                account_id = extract_account_id(
-                    nested
-                )
-
-                if account_id:
-                    return account_id
-
-    elif isinstance(account_data, list):
-
-        for item in account_data:
-
-            account_id = extract_account_id(
-                item
+            account_response = (
+                trade_client.account_v2
+                .get_account_list()
             )
 
-            if account_id:
-                return account_id
+            diagnostic["account_list_status"] = (
+                account_response.status_code
+            )
 
-    return None
+            diagnostic["account_list"] = (
+                account_response.json()
+            )
+
+        except Exception as e:
+
+            diagnostic["error"] = (
+                "ACCOUNT LIST: " + str(e)
+            )
+
+        # ----------------------------------------------------
+        # CASH ACCOUNT
+        # ----------------------------------------------------
+
+        diagnostic["accounts"]["cash"] = (
+            _query_account(
+                CASH_ACCOUNT_ID,
+                "Individual Cash"
+            )
+        )
+
+        # ----------------------------------------------------
+        # MARGIN ACCOUNT
+        # ----------------------------------------------------
+
+        diagnostic["accounts"]["margin"] = (
+            _query_account(
+                MARGIN_ACCOUNT_ID,
+                "Individual Margin"
+            )
+        )
+
+        cash = diagnostic["accounts"]["cash"]
+        margin = diagnostic["accounts"]["margin"]
+
+        diagnostic["success"] = (
+            cash.get("success")
+            or margin.get("success")
+        )
+
+    except Exception as e:
+
+        diagnostic["error"] = str(e)
+
+    return diagnostic
 
 
 # ============================================================
@@ -774,7 +861,9 @@ def select_0dte_atm_contract(
                     and expiration == today
                 ):
 
-                    valid.append(contract)
+                    valid.append(
+                        contract
+                    )
 
             except Exception:
 
@@ -917,401 +1006,6 @@ def get_option_price(
             "success": False,
             "premium": None,
             "error": str(e)
-        }
-
-
-# ============================================================
-# WEBULL OPTION ORDER PREVIEW
-# ============================================================
-
-def preview_webull_option_order(
-    option_type="CALL"
-):
-    """
-    SAFE TEST ONLY.
-
-    Builds a 1-contract SPY option BUY order and
-    sends it to Webull's sandbox order-preview endpoint.
-
-    THIS DOES NOT PLACE AN ORDER.
-    """
-
-    normalized_type = str(
-        option_type
-    ).upper()
-
-    if normalized_type not in (
-        "CALL",
-        "PUT"
-    ):
-
-        return {
-            "success": False,
-            "error":
-                "Option type must be CALL or PUT"
-        }
-
-    # --------------------------------------------------------
-    # Get Webull account
-    # --------------------------------------------------------
-
-    accounts_result = get_webull_accounts()
-
-    if not accounts_result.get("success"):
-
-        return {
-            "success": False,
-            "stage": "ACCOUNT_LOOKUP",
-            "error":
-                accounts_result.get(
-                    "error",
-                    "Unable to retrieve Webull accounts"
-                )
-        }
-
-    account_data = accounts_result.get(
-        "accounts"
-    )
-
-    account_id = extract_account_id(
-        account_data
-    )
-
-    if not account_id:
-
-        return {
-            "success": False,
-            "stage": "ACCOUNT_ID",
-            "error":
-                "Unable to determine Webull account ID",
-            "accounts":
-                account_data
-        }
-
-    # --------------------------------------------------------
-    # Select current ATM option
-    # --------------------------------------------------------
-
-    contract_result = (
-        select_0dte_atm_contract(
-            normalized_type
-        )
-    )
-
-    if not contract_result.get(
-        "success"
-    ):
-
-        return {
-            "success": False,
-            "stage": "CONTRACT_SELECTION",
-            "error":
-                contract_result.get(
-                    "error",
-                    "Contract selection failed"
-                )
-        }
-
-    selected = contract_result[
-        "selected_contract"
-    ]
-
-    symbol = selected.get(
-        "symbol"
-    )
-
-    strike = selected.get(
-        "strike"
-    )
-
-    expiration = selected.get(
-        "expiration"
-    )
-
-    # --------------------------------------------------------
-    # Get current option premium
-    # --------------------------------------------------------
-
-    premium_result = get_option_price(
-        symbol
-    )
-
-    premium = premium_result.get(
-        "premium"
-    )
-
-    if premium is None:
-
-        return {
-            "success": False,
-            "stage": "OPTION_PRICE",
-            "error":
-                "Unable to obtain current option premium",
-            "contract":
-                selected,
-            "pricing_response":
-                premium_result
-        }
-
-    # --------------------------------------------------------
-    # Build preview payload
-    # --------------------------------------------------------
-
-    client_order_id = (
-        "PREVIEW"
-        + uuid.uuid4().hex[:20].upper()
-    )
-
-    payload = {
-        "account_id": account_id,
-        "new_orders": [
-            {
-                "client_order_id":
-                    client_order_id,
-
-                "combo_type":
-                    "NORMAL",
-
-                "symbol":
-                    symbol,
-
-                "instrument_type":
-                    "OPTION",
-
-                "market":
-                    "US",
-
-                "option_strategy":
-                    "SINGLE",
-
-                "side":
-                    "BUY",
-
-                "order_type":
-                    "LIMIT",
-
-                "limit_price":
-                    str(round(premium, 2)),
-
-                "quantity":
-                    "1",
-
-                "time_in_force":
-                    "DAY",
-
-                "entrust_type":
-                    "QTY",
-
-                "legs": [
-                    {
-                        "side":
-                            "BUY",
-
-                        "quantity":
-                            "1",
-
-                        "market":
-                            "US",
-
-                        "instrument_type":
-                            "OPTION",
-
-                        "symbol":
-                            symbol,
-
-                        "strike_price":
-                            str(strike),
-
-                        "option_expire_date":
-                            str(expiration)[:10],
-
-                        "option_type":
-                            normalized_type
-                    }
-                ]
-            }
-        ]
-    }
-
-    # --------------------------------------------------------
-    # Use the SDK's authenticated HTTP machinery.
-    #
-    # The exact internal request interface differs between
-    # SDK releases, so try the known client interfaces.
-    # --------------------------------------------------------
-
-    try:
-
-        trade_client, _ = get_clients()
-
-        api_client = getattr(
-            trade_client,
-            "_api_client",
-            None
-        )
-
-        if api_client is None:
-
-            api_client = getattr(
-                trade_client,
-                "api_client",
-                None
-            )
-
-        if api_client is None:
-
-            return {
-                "success": False,
-                "stage": "API_CLIENT",
-                "error":
-                    "Unable to access the authenticated "
-                    "Webull API client inside the SDK",
-                "payload":
-                    payload
-            }
-
-        preview_method = getattr(
-            api_client,
-            "post",
-            None
-        )
-
-        if preview_method is None:
-
-            preview_method = getattr(
-                api_client,
-                "request",
-                None
-            )
-
-        if preview_method is None:
-
-            return {
-                "success": False,
-                "stage": "PREVIEW_METHOD",
-                "error":
-                    "The installed Webull SDK does not expose "
-                    "the expected authenticated HTTP method",
-                "api_client_type":
-                    type(api_client).__name__,
-                "payload":
-                    payload
-            }
-
-        endpoint = (
-            "/openapi/trade/order/preview"
-        )
-
-        # ----------------------------------------------------
-        # First try a conventional post() interface.
-        # ----------------------------------------------------
-
-        try:
-
-            response = preview_method(
-                endpoint,
-                json=payload
-            )
-
-        except TypeError:
-
-            # ------------------------------------------------
-            # Fall back to a conventional request() interface.
-            # ------------------------------------------------
-
-            response = preview_method(
-                "POST",
-                endpoint,
-                json=payload
-            )
-
-        # ----------------------------------------------------
-        # Normalize response.
-        # ----------------------------------------------------
-
-        if hasattr(
-            response,
-            "json"
-        ):
-
-            response_data = response.json()
-
-        else:
-
-            response_data = response
-
-        status_code = getattr(
-            response,
-            "status_code",
-            None
-        )
-
-        return {
-            "success":
-                True,
-
-            "preview_only":
-                True,
-
-            "message":
-                "Webull option order preview completed",
-
-            "account_id":
-                account_id,
-
-            "option":
-                {
-                    "symbol":
-                        symbol,
-
-                    "option_type":
-                        normalized_type,
-
-                    "strike":
-                        strike,
-
-                    "expiration":
-                        expiration,
-
-                    "premium":
-                        premium
-                },
-
-            "order":
-                {
-                    "side":
-                        "BUY",
-
-                    "quantity":
-                        1,
-
-                    "limit_price":
-                        round(
-                            premium,
-                            2
-                        ),
-
-                    "time_in_force":
-                        "DAY"
-                },
-
-            "webull_status_code":
-                status_code,
-
-            "webull_response":
-                response_data,
-
-            "request_payload":
-                payload
-        }
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "stage": "WEBULL_PREVIEW_REQUEST",
-            "error": str(e),
-            "payload": payload
         }
 
 
@@ -1510,7 +1204,8 @@ def paper_sell_spy():
                 ""
             ),
             result="FAILED",
-            error="Unable to get current SPY price"
+            error=
+                "Unable to get current SPY price"
         )
 
         return {
@@ -1716,7 +1411,7 @@ def paper_sell_spy():
 
 
 # ============================================================
-# DEBUG HELPERS
+# DEBUG / TEST HELPERS
 # ============================================================
 
 def get_persistent_open_trade():
