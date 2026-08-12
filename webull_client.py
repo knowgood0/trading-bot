@@ -3,7 +3,6 @@ import json
 import sqlite3
 import urllib.request
 import uuid
-import threading
 from datetime import datetime, timezone
 
 from webull.core.client import ApiClient
@@ -27,8 +26,15 @@ GOOGLE_SHEETS_URL = (
 
 WEBULL_ENDPOINT = "api.sandbox.webull.com"
 
-WEBULL_ACCOUNT_ID = "KUHQDSV857TD3JD7VGP73UFQ08"
-WEBULL_ACCOUNT_NUMBER = "DEN8YFM7"
+# WEBULL SANDBOX ACCOUNT RETURNED BY THE API
+#
+# Individual Margin
+# Account number: DEA73AV9
+# API account_id: DQIO6B3HUDJB14G6GF5K0J4J7B
+#
+# PAPER / SANDBOX ONLY.
+WEBULL_ACCOUNT_ID = "DQIO6B3HUDJB14G6GF5K0J4J7B"
+WEBULL_ACCOUNT_NUMBER = "DEA73AV9"
 WEBULL_ACCOUNT_NAME = "Individual Margin"
 
 
@@ -265,10 +271,6 @@ def get_trade_history(limit=50):
 
 # ============================================================
 # GOOGLE SHEETS
-#
-# IMPORTANT:
-# Google Sheets is JOURNALING ONLY.
-# It must never be allowed to break trading requests.
 # ============================================================
 
 def send_to_google_sheets(data):
@@ -279,17 +281,14 @@ def send_to_google_sheets(data):
             GOOGLE_SHEETS_URL,
             data=payload,
             headers={
-                "Content-Type": "application/json",
-                "User-Agent": "TradingBot/5.0"
+                "Content-Type": "application/json"
             },
             method="POST"
         )
 
-        # Short timeout so a broken/slow Google endpoint
-        # cannot hold up the trading endpoint.
         with urllib.request.urlopen(
             request,
-            timeout=4
+            timeout=15
         ) as response:
 
             response_body = response.read().decode("utf-8")
@@ -307,35 +306,8 @@ def send_to_google_sheets(data):
 
         return {
             "success": False,
-            "error": str(e),
-            "journal_only": True
+            "error": str(e)
         }
-
-
-def send_to_google_sheets_async(data):
-    """
-    Fire-and-forget Google Sheets logging.
-
-    The trading endpoint does NOT wait for Google Sheets.
-    """
-
-    def worker():
-        try:
-            send_to_google_sheets(data)
-        except Exception:
-            pass
-
-    thread = threading.Thread(
-        target=worker,
-        daemon=True
-    )
-
-    thread.start()
-
-    return {
-        "success": True,
-        "queued": True
-    }
 
 
 def get_open_trade_from_google_sheets():
@@ -350,16 +322,14 @@ def get_open_trade_from_google_sheets():
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "TradingBot/5.0"
+                "User-Agent": "TradingBot/4.0"
             },
             method="GET"
         )
 
-        # Keep this very short.
-        # Local SQLite is the fallback.
         with urllib.request.urlopen(
             request,
-            timeout=3
+            timeout=15
         ) as response:
 
             response_body = response.read().decode("utf-8")
@@ -390,19 +360,19 @@ def update_google_trade_closed(
     error=""
 ):
 
-    data = {
-        "action": "close_trade",
-        "contract": contract,
-        "exit_price": exit_price,
-        "exit_premium": exit_premium,
-        "profit_loss": profit_loss,
-        "pricing_mode": pricing_mode,
-        "result": result,
-        "error": error,
-        "timestamp": utc_now()
-    }
-
-    return send_to_google_sheets_async(data)
+    return send_to_google_sheets(
+        {
+            "action": "close_trade",
+            "contract": contract,
+            "exit_price": exit_price,
+            "exit_premium": exit_premium,
+            "profit_loss": profit_loss,
+            "pricing_mode": pricing_mode,
+            "result": result,
+            "error": error,
+            "timestamp": utc_now()
+        }
+    )
 
 
 def journal_trade(
@@ -442,7 +412,7 @@ def journal_trade(
         "error": error
     }
 
-    return send_to_google_sheets_async(data)
+    return send_to_google_sheets(data)
 
 
 # ============================================================
@@ -482,7 +452,6 @@ def get_clients():
 
 
 def resolve_account():
-
     return {
         "account_id": WEBULL_ACCOUNT_ID,
         "account_number": WEBULL_ACCOUNT_NUMBER,
@@ -740,7 +709,6 @@ def get_webull_option_position(option_symbol):
         if symbol == option_symbol:
 
             matches.append(position)
-
             continue
 
         legs = position.get("legs")
@@ -1051,9 +1019,7 @@ def select_0dte_atm_contract(option_type="CALL"):
         return {
             "success": True,
             "spy_price": spy_price,
-
             "selected_contract": {
-
                 "symbol":
                     selected.get("symbol"),
 
@@ -1307,48 +1273,6 @@ def _webull_place_option_order(
 
         response_data = response.json()
 
-        # ----------------------------------------------------
-        # IMPORTANT:
-        #
-        # HTTP errors are NOT successful orders.
-        # ----------------------------------------------------
-
-        if response.status_code < 200 or response.status_code >= 300:
-
-            return {
-                "success": False,
-                "status_code":
-                    response.status_code,
-                "client_order_id":
-                    client_order_id,
-                "account":
-                    resolve_account(),
-                "error":
-                    response_data,
-                "prepared_order":
-                    order
-            }
-
-        # Some Webull responses can return HTTP 200 while
-        # containing an application-level failure.
-        if isinstance(response_data, dict):
-
-            if response_data.get("success") is False:
-
-                return {
-                    "success": False,
-                    "status_code":
-                        response.status_code,
-                    "client_order_id":
-                        client_order_id,
-                    "account":
-                        resolve_account(),
-                    "error":
-                        response_data,
-                    "prepared_order":
-                        order
-                }
-
         return {
             "success": True,
             "status_code":
@@ -1553,10 +1477,6 @@ def paper_buy_spy(option_type="CALL"):
                 premium_result
         }
 
-    # --------------------------------------------------------
-    # ACTUAL WEBULL SANDBOX ORDER
-    # --------------------------------------------------------
-
     order_result = (
         _webull_place_option_order(
             symbol="SPY",
@@ -1572,11 +1492,6 @@ def paper_buy_spy(option_type="CALL"):
 
     if not order_result.get("success"):
 
-        webull_error = order_result.get(
-            "error",
-            "Webull BUY failed"
-        )
-
         journal_trade(
             event="WEBULL_BUY_FAILED",
             action="BUY",
@@ -1588,7 +1503,10 @@ def paper_buy_spy(option_type="CALL"):
             spy_price=spy_price,
             option_premium=entry_premium,
             result="FAILED",
-            error=str(webull_error)
+            error=order_result.get(
+                "error",
+                "Webull BUY failed"
+            )
         )
 
         return {
@@ -1622,7 +1540,6 @@ def paper_buy_spy(option_type="CALL"):
         "error": None
     }
 
-    # Local database is saved BEFORE Google Sheets.
     save_trade(trade)
 
     google_result = journal_trade(
@@ -1776,10 +1693,6 @@ def paper_sell_spy():
         "expiration"
     )
 
-    # --------------------------------------------------------
-    # ACTUAL WEBULL SANDBOX SELL
-    # --------------------------------------------------------
-
     order_result = (
         _webull_place_option_order(
             symbol="SPY",
@@ -1794,11 +1707,6 @@ def paper_sell_spy():
     )
 
     if not order_result.get("success"):
-
-        webull_error = order_result.get(
-            "error",
-            "Webull SELL failed"
-        )
 
         journal_trade(
             event="WEBULL_SELL_FAILED",
@@ -1817,7 +1725,10 @@ def paper_sell_spy():
             profit_loss=profit_loss,
             pricing_mode=pricing_mode,
             result="FAILED",
-            error=str(webull_error)
+            error=order_result.get(
+                "error",
+                "Webull SELL failed"
+            )
         )
 
         return {
