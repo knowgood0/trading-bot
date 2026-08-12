@@ -13,21 +13,40 @@ from webull_client import (
     paper_trade_status,
     get_trade_history,
     journal_trade,
-    test_options
+    test_options,
+    get_webull_positions,
+    get_webull_option_position,
+    test_order_detail,
+    resolve_account
 )
 
 
 app = Flask(__name__)
 
 
+# ============================================================
+# HOME
+# ============================================================
+
 @app.route("/")
 def home():
 
     return jsonify({
 
-        "status": "Trading bot online",
+        "status":
+            "Trading bot online",
 
-        "message": "Webull sandbox connected"
+        "message":
+            "Webull SANDBOX paper trading connected",
+
+        "environment":
+            "SANDBOX",
+
+        "trading":
+            "PAPER ONLY",
+
+        "source_of_truth":
+            "WEBULL_SANDBOX"
 
     })
 
@@ -45,6 +64,41 @@ def webull_test():
 
 
 # ============================================================
+# SELECTED ACCOUNT
+# ============================================================
+
+@app.route("/selected-account")
+def selected_account_test():
+
+    try:
+
+        account = resolve_account()
+
+        return jsonify({
+
+            "success": True,
+
+            "environment":
+                "SANDBOX",
+
+            "account":
+                account
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                str(e)
+
+        })
+
+
+# ============================================================
 # ACCOUNT DIAGNOSTIC
 # ============================================================
 
@@ -53,6 +107,47 @@ def account_diagnostic_test():
 
     return jsonify(
         account_diagnostic()
+    )
+
+
+# ============================================================
+# WEBULL POSITIONS
+# ============================================================
+
+@app.route("/webull-positions")
+def webull_positions_test():
+
+    return jsonify(
+        get_webull_positions()
+    )
+
+
+# ============================================================
+# SPECIFIC OPTION POSITION
+# ============================================================
+
+@app.route("/webull-option-position")
+def webull_option_position_test():
+
+    symbol = request.args.get(
+        "symbol"
+    )
+
+    if not symbol:
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Missing option symbol"
+
+        })
+
+    return jsonify(
+        get_webull_option_position(
+            symbol
+        )
     )
 
 
@@ -102,10 +197,10 @@ def option_price_test():
 
             "success": False,
 
-            "error": "Missing option symbol"
+            "error":
+                "Missing option symbol"
 
         })
-
 
     return jsonify(
         get_option_price(symbol)
@@ -141,7 +236,7 @@ def options_test():
 
 
 # ============================================================
-# PAPER BUY
+# ACTUAL WEBULL SANDBOX PAPER BUY
 # ============================================================
 
 @app.route("/paper-buy")
@@ -158,7 +253,7 @@ def paper_buy_test():
 
 
 # ============================================================
-# PAPER SELL
+# ACTUAL WEBULL SANDBOX PAPER SELL
 # ============================================================
 
 @app.route("/paper-sell")
@@ -196,9 +291,11 @@ def paper_history_test():
 
             "success": True,
 
-            "count": len(trades),
+            "count":
+                len(trades),
 
-            "trades": trades
+            "trades":
+                trades
 
         })
 
@@ -208,9 +305,39 @@ def paper_history_test():
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         })
+
+
+# ============================================================
+# ORDER DETAIL
+# ============================================================
+
+@app.route("/order-detail")
+def order_detail_test():
+
+    client_order_id = request.args.get(
+        "client_order_id"
+    )
+
+    if not client_order_id:
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Missing client_order_id"
+
+        })
+
+    return jsonify(
+        test_order_detail(
+            client_order_id
+        )
+    )
 
 
 # ============================================================
@@ -260,9 +387,11 @@ def google_test():
 
             "success": True,
 
-            "message": "Google Sheets test sent",
+            "message":
+                "Google Sheets test sent",
 
-            "google_sheets": result
+            "google_sheets":
+                result
 
         })
 
@@ -272,7 +401,8 @@ def google_test():
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         })
 
@@ -281,7 +411,10 @@ def google_test():
 # TRADINGVIEW WEBHOOK
 # ============================================================
 
-@app.route("/webhook", methods=["POST"])
+@app.route(
+    "/webhook",
+    methods=["POST"]
+)
 def webhook():
 
     try:
@@ -313,26 +446,40 @@ def webhook():
             "SPY"
         )
 
-        action = data.get(
-            "action",
-            "BUY"
-        )
+        action = str(
+            data.get(
+                "action",
+                "BUY"
+            )
+        ).upper()
 
-        option_type = data.get(
-            "option_type",
-            "CALL"
-        )
+        option_type = str(
+            data.get(
+                "option_type",
+                "CALL"
+            )
+        ).upper()
 
 
-        if action.upper() == "BUY":
+        # ----------------------------------------------------
+        # ACTUAL WEBULL SANDBOX BUY
+        # ----------------------------------------------------
+
+        if action == "BUY":
 
             trade_result = paper_buy_spy(
                 option_type
             )
 
-        elif action.upper() == "SELL":
+
+        # ----------------------------------------------------
+        # ACTUAL WEBULL SANDBOX SELL
+        # ----------------------------------------------------
+
+        elif action == "SELL":
 
             trade_result = paper_sell_spy()
+
 
         else:
 
@@ -341,7 +488,8 @@ def webhook():
                 "success": False,
 
                 "error":
-                    "Unknown action"
+                    "Unknown action: "
+                    + action
 
             }
 
@@ -351,17 +499,24 @@ def webhook():
         )
 
 
+        # The webhook itself was received successfully.
+        # trade_result.success tells us whether Webull
+        # actually accepted the requested operation.
+
         return jsonify({
 
             "success": True,
 
             "received_signal": {
 
-                "symbol": symbol,
+                "symbol":
+                    symbol,
 
-                "action": action,
+                "action":
+                    action,
 
-                "option_type": option_type
+                "option_type":
+                    option_type
 
             },
 
@@ -381,7 +536,8 @@ def webhook():
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         })
 
@@ -398,4 +554,4 @@ if __name__ == "__main__":
 
         port=5000
 
-    )
+        )
