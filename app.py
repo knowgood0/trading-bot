@@ -37,16 +37,16 @@ def home():
             "Trading bot online",
 
         "message":
-            "Webull SANDBOX paper trading connected",
+            "Webull Paper Trading connected",
 
         "environment":
-            "SANDBOX",
+            "PAPER_TRADE",
 
         "trading":
             "PAPER ONLY",
 
         "source_of_truth":
-            "WEBULL_SANDBOX",
+            "WEBULL_PAPER_TRADE",
 
         "configured_account":
             resolve_account()
@@ -78,7 +78,7 @@ def selected_account_test():
         "success": True,
 
         "environment":
-            "SANDBOX",
+            "PAPER_TRADE",
 
         "account":
             resolve_account()
@@ -224,7 +224,7 @@ def options_test():
 
 
 # ============================================================
-# ACTUAL WEBULL SANDBOX PAPER BUY
+# WEBULL PAPER BUY
 # ============================================================
 
 @app.route("/paper-buy")
@@ -241,7 +241,7 @@ def paper_buy_test():
 
 
 # ============================================================
-# ACTUAL WEBULL SANDBOX PAPER SELL
+# WEBULL PAPER SELL
 # ============================================================
 
 @app.route("/paper-sell")
@@ -450,7 +450,7 @@ def webhook():
 
 
         # ----------------------------------------------------
-        # ACTUAL WEBULL SANDBOX BUY
+        # WEBULL PAPER BUY
         # ----------------------------------------------------
 
         if action == "BUY":
@@ -461,7 +461,7 @@ def webhook():
 
 
         # ----------------------------------------------------
-        # ACTUAL WEBULL SANDBOX SELL
+        # WEBULL PAPER SELL
         # ----------------------------------------------------
 
         elif action == "SELL":
