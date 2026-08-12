@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from webull_client import (
     test_webull_connection,
     account_diagnostic,
+    resolve_account,
     select_contract,
     get_spy_price,
     get_option_price,
@@ -16,8 +17,7 @@ from webull_client import (
     test_options,
     get_webull_positions,
     get_webull_option_position,
-    test_order_detail,
-    resolve_account
+    test_order_detail
 )
 
 
@@ -46,7 +46,10 @@ def home():
             "PAPER ONLY",
 
         "source_of_truth":
-            "WEBULL_SANDBOX"
+            "WEBULL_SANDBOX",
+
+        "configured_account":
+            resolve_account()
 
     })
 
@@ -70,32 +73,17 @@ def webull_test():
 @app.route("/selected-account")
 def selected_account_test():
 
-    try:
+    return jsonify({
 
-        account = resolve_account()
+        "success": True,
 
-        return jsonify({
+        "environment":
+            "SANDBOX",
 
-            "success": True,
+        "account":
+            resolve_account()
 
-            "environment":
-                "SANDBOX",
-
-            "account":
-                account
-
-        })
-
-    except Exception as e:
-
-        return jsonify({
-
-            "success": False,
-
-            "error":
-                str(e)
-
-        })
+    })
 
 
 # ============================================================
@@ -499,10 +487,6 @@ def webhook():
         )
 
 
-        # The webhook itself was received successfully.
-        # trade_result.success tells us whether Webull
-        # actually accepted the requested operation.
-
         return jsonify({
 
             "success": True,
@@ -549,9 +533,6 @@ def webhook():
 if __name__ == "__main__":
 
     app.run(
-
         host="0.0.0.0",
-
         port=5000
-
-        )
+    )
