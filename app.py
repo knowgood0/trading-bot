@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, request, jsonify
 
 from webull_client import (
@@ -37,16 +39,16 @@ def home():
             "Trading bot online",
 
         "message":
-            "Webull Paper Trading connected",
+            "Webull paper trading connected",
 
         "environment":
-            "PAPER_TRADE",
+            "PAPER",
 
         "trading":
             "PAPER ONLY",
 
         "source_of_truth":
-            "WEBULL_PAPER_TRADE",
+            "WEBULL_PAPER_ACCOUNT",
 
         "configured_account":
             resolve_account()
@@ -78,7 +80,10 @@ def selected_account_test():
         "success": True,
 
         "environment":
-            "PAPER_TRADE",
+            resolve_account().get(
+                "environment",
+                "PAPER"
+            ),
 
         "account":
             resolve_account()
@@ -407,7 +412,9 @@ def webhook():
 
     try:
 
-        data = request.json
+        data = request.get_json(
+            silent=True
+        )
 
         app.logger.info(
             f"Webhook received: {data}"
@@ -426,7 +433,7 @@ def webhook():
                 "error":
                     "No JSON payload received"
 
-            })
+            }), 400
 
 
         symbol = data.get(
@@ -450,7 +457,7 @@ def webhook():
 
 
         # ----------------------------------------------------
-        # WEBULL PAPER BUY
+        # PAPER BUY
         # ----------------------------------------------------
 
         if action == "BUY":
@@ -461,7 +468,7 @@ def webhook():
 
 
         # ----------------------------------------------------
-        # WEBULL PAPER SELL
+        # PAPER SELL
         # ----------------------------------------------------
 
         elif action == "SELL":
@@ -489,7 +496,11 @@ def webhook():
 
         return jsonify({
 
-            "success": True,
+            "success":
+                trade_result.get(
+                    "success",
+                    False
+                ),
 
             "received_signal": {
 
@@ -523,7 +534,7 @@ def webhook():
             "error":
                 str(e)
 
-        })
+        }), 500
 
 
 # ============================================================
@@ -532,7 +543,14 @@ def webhook():
 
 if __name__ == "__main__":
 
+    port = int(
+        os.environ.get(
+            "PORT",
+            "5000"
+        )
+    )
+
     app.run(
         host="0.0.0.0",
-        port=5000
+        port=port
     )
