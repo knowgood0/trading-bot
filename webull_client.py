@@ -1039,8 +1039,7 @@ def paper_sell_spy():
                 ""
             ),
             result="FAILED",
-            error:
-                "Unable to get current SPY price"
+            error:"Unable to get current SPY price"
         )
 
         return {
