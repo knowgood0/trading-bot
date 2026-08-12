@@ -3,6 +3,7 @@ import json
 import sqlite3
 import urllib.request
 import uuid
+import threading
 from datetime import datetime, timezone
 
 from webull.core.client import ApiClient
@@ -26,13 +27,6 @@ GOOGLE_SHEETS_URL = (
 
 WEBULL_ENDPOINT = "api.sandbox.webull.com"
 
-# HARD-CODED SANDBOX ACCOUNT
-#
-# Individual Margin
-# Account number: DEN8YFM7
-# API account_id: KUHQDSV857TD3JD7VGP73UFQ08
-#
-# SANDBOX ONLY.
 WEBULL_ACCOUNT_ID = "KUHQDSV857TD3JD7VGP73UFQ08"
 WEBULL_ACCOUNT_NUMBER = "DEN8YFM7"
 WEBULL_ACCOUNT_NAME = "Individual Margin"
@@ -271,6 +265,10 @@ def get_trade_history(limit=50):
 
 # ============================================================
 # GOOGLE SHEETS
+#
+# IMPORTANT:
+# Google Sheets is JOURNALING ONLY.
+# It must never be allowed to break trading requests.
 # ============================================================
 
 def send_to_google_sheets(data):
@@ -281,14 +279,17 @@ def send_to_google_sheets(data):
             GOOGLE_SHEETS_URL,
             data=payload,
             headers={
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "User-Agent": "TradingBot/5.0"
             },
             method="POST"
         )
 
+        # Short timeout so a broken/slow Google endpoint
+        # cannot hold up the trading endpoint.
         with urllib.request.urlopen(
             request,
-            timeout=15
+            timeout=4
         ) as response:
 
             response_body = response.read().decode("utf-8")
@@ -306,8 +307,35 @@ def send_to_google_sheets(data):
 
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "journal_only": True
         }
+
+
+def send_to_google_sheets_async(data):
+    """
+    Fire-and-forget Google Sheets logging.
+
+    The trading endpoint does NOT wait for Google Sheets.
+    """
+
+    def worker():
+        try:
+            send_to_google_sheets(data)
+        except Exception:
+            pass
+
+    thread = threading.Thread(
+        target=worker,
+        daemon=True
+    )
+
+    thread.start()
+
+    return {
+        "success": True,
+        "queued": True
+    }
 
 
 def get_open_trade_from_google_sheets():
@@ -322,14 +350,16 @@ def get_open_trade_from_google_sheets():
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "TradingBot/4.0"
+                "User-Agent": "TradingBot/5.0"
             },
             method="GET"
         )
 
+        # Keep this very short.
+        # Local SQLite is the fallback.
         with urllib.request.urlopen(
             request,
-            timeout=15
+            timeout=3
         ) as response:
 
             response_body = response.read().decode("utf-8")
@@ -360,19 +390,19 @@ def update_google_trade_closed(
     error=""
 ):
 
-    return send_to_google_sheets(
-        {
-            "action": "close_trade",
-            "contract": contract,
-            "exit_price": exit_price,
-            "exit_premium": exit_premium,
-            "profit_loss": profit_loss,
-            "pricing_mode": pricing_mode,
-            "result": result,
-            "error": error,
-            "timestamp": utc_now()
-        }
-    )
+    data = {
+        "action": "close_trade",
+        "contract": contract,
+        "exit_price": exit_price,
+        "exit_premium": exit_premium,
+        "profit_loss": profit_loss,
+        "pricing_mode": pricing_mode,
+        "result": result,
+        "error": error,
+        "timestamp": utc_now()
+    }
+
+    return send_to_google_sheets_async(data)
 
 
 def journal_trade(
@@ -412,7 +442,7 @@ def journal_trade(
         "error": error
     }
 
-    return send_to_google_sheets(data)
+    return send_to_google_sheets_async(data)
 
 
 # ============================================================
@@ -452,12 +482,6 @@ def get_clients():
 
 
 def resolve_account():
-    """
-    The trading account is intentionally hard-coded.
-
-    This avoids making an unnecessary account-list API call
-    every time Render wakes up.
-    """
 
     return {
         "account_id": WEBULL_ACCOUNT_ID,
@@ -578,22 +602,12 @@ def account_diagnostic():
         "success": False,
         "environment": "SANDBOX",
         "endpoint": WEBULL_ENDPOINT,
-
         "configured_account": resolve_account(),
-
         "accounts": {},
-
         "account_list": None,
-
         "account_list_status": None,
-
         "error": None
     }
-
-    # --------------------------------------------------------
-    # We still expose account-list diagnostics when explicitly
-    # requested, but nothing in normal startup depends on it.
-    # --------------------------------------------------------
 
     try:
 
@@ -683,6 +697,7 @@ def get_webull_option_position(option_symbol):
     positions = result.get("positions")
 
     if isinstance(positions, dict):
+
         if isinstance(
             positions.get("positions"),
             list
@@ -861,19 +876,15 @@ def get_option_contracts(option_type="CALL"):
 
         if isinstance(result, dict):
 
-            if (
-                isinstance(
-                    result.get("data"),
-                    list
-                )
+            if isinstance(
+                result.get("data"),
+                list
             ):
                 return result["data"]
 
-            if (
-                isinstance(
-                    result.get("items"),
-                    list
-                )
+            if isinstance(
+                result.get("items"),
+                list
             ):
                 return result["items"]
 
@@ -1039,7 +1050,6 @@ def select_0dte_atm_contract(option_type="CALL"):
 
         return {
             "success": True,
-
             "spy_price": spy_price,
 
             "selected_contract": {
@@ -1131,8 +1141,6 @@ def get_option_price(option_symbol):
 
         premium = None
 
-        # Webull's current option snapshot uses "price"
-        # for last traded price.
         for field in (
             "price",
             "latest_price",
@@ -1218,20 +1226,6 @@ def _webull_place_option_order(
             "TV"
         )
 
-        # ----------------------------------------------------
-        # IMPORTANT:
-        #
-        # symbol = underlying symbol, e.g. SPY
-        #
-        # The actual option contract is identified by:
-        # strike_price
-        # option_expire_date
-        # option_type
-        #
-        # This is the structure required by Webull's current
-        # U.S. options API.
-        # ----------------------------------------------------
-
         order = {
 
             "client_order_id":
@@ -1303,13 +1297,6 @@ def _webull_place_option_order(
             ]
         }
 
-        # ----------------------------------------------------
-        # Use Webull's authenticated SDK.
-        #
-        # The current official SDK exposes this through
-        # order_v2.place_option().
-        # ----------------------------------------------------
-
         response = (
             trade_client.order_v2
             .place_option(
@@ -1319,6 +1306,48 @@ def _webull_place_option_order(
         )
 
         response_data = response.json()
+
+        # ----------------------------------------------------
+        # IMPORTANT:
+        #
+        # HTTP errors are NOT successful orders.
+        # ----------------------------------------------------
+
+        if response.status_code < 200 or response.status_code >= 300:
+
+            return {
+                "success": False,
+                "status_code":
+                    response.status_code,
+                "client_order_id":
+                    client_order_id,
+                "account":
+                    resolve_account(),
+                "error":
+                    response_data,
+                "prepared_order":
+                    order
+            }
+
+        # Some Webull responses can return HTTP 200 while
+        # containing an application-level failure.
+        if isinstance(response_data, dict):
+
+            if response_data.get("success") is False:
+
+                return {
+                    "success": False,
+                    "status_code":
+                        response.status_code,
+                    "client_order_id":
+                        client_order_id,
+                    "account":
+                        resolve_account(),
+                    "error":
+                        response_data,
+                    "prepared_order":
+                        order
+                }
 
         return {
             "success": True,
@@ -1543,6 +1572,11 @@ def paper_buy_spy(option_type="CALL"):
 
     if not order_result.get("success"):
 
+        webull_error = order_result.get(
+            "error",
+            "Webull BUY failed"
+        )
+
         journal_trade(
             event="WEBULL_BUY_FAILED",
             action="BUY",
@@ -1554,10 +1588,7 @@ def paper_buy_spy(option_type="CALL"):
             spy_price=spy_price,
             option_premium=entry_premium,
             result="FAILED",
-            error=order_result.get(
-                "error",
-                "Webull BUY failed"
-            )
+            error=str(webull_error)
         )
 
         return {
@@ -1591,6 +1622,7 @@ def paper_buy_spy(option_type="CALL"):
         "error": None
     }
 
+    # Local database is saved BEFORE Google Sheets.
     save_trade(trade)
 
     google_result = journal_trade(
@@ -1763,6 +1795,11 @@ def paper_sell_spy():
 
     if not order_result.get("success"):
 
+        webull_error = order_result.get(
+            "error",
+            "Webull SELL failed"
+        )
+
         journal_trade(
             event="WEBULL_SELL_FAILED",
             action="SELL",
@@ -1780,10 +1817,7 @@ def paper_sell_spy():
             profit_loss=profit_loss,
             pricing_mode=pricing_mode,
             result="FAILED",
-            error=order_result.get(
-                "error",
-                "Webull SELL failed"
-            )
+            error=str(webull_error)
         )
 
         return {
@@ -1937,4 +1971,4 @@ def test_options():
         "success": True,
         "call": call,
         "put": put
-        }
+    }
