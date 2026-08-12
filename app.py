@@ -12,7 +12,8 @@ from webull_client import (
     paper_trade_status,
     get_trade_history,
     journal_trade,
-    test_options
+    test_options,
+    preview_webull_option_order
 )
 
 
@@ -23,8 +24,11 @@ app = Flask(__name__)
 def home():
 
     return jsonify({
+
         "status": "Trading bot online",
+
         "message": "Webull sandbox connected"
+
     })
 
 
@@ -67,9 +71,13 @@ def option_price_test():
     if not symbol:
 
         return jsonify({
+
             "success": False,
+
             "error": "Missing option symbol"
+
         })
+
 
     return jsonify(
         get_option_price(symbol)
@@ -98,6 +106,41 @@ def options_test():
     return jsonify(
         test_options()
     )
+
+
+# ============================================================
+# WEBULL OPTION ORDER PREVIEW
+# ============================================================
+
+@app.route("/webull-option-preview")
+def webull_option_preview():
+
+    option_type = request.args.get(
+        "option_type",
+        "CALL"
+    )
+
+    try:
+
+        result = preview_webull_option_order(
+            option_type
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+
+        app.logger.exception(
+            "Webull option preview exception"
+        )
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        })
 
 
 @app.route("/paper-buy")
@@ -137,16 +180,23 @@ def paper_history_test():
         trades = get_trade_history(50)
 
         return jsonify({
+
             "success": True,
+
             "count": len(trades),
+
             "trades": trades
+
         })
 
     except Exception as e:
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         })
 
 
@@ -156,50 +206,70 @@ def google_test():
     try:
 
         result = journal_trade(
+
             event="GOOGLE_TEST",
+
             action="TEST",
+
             symbol="SPY",
+
             option_type="CALL",
+
             contract="TEST-CONTRACT",
+
             expiration="TEST",
+
             strike=0,
+
             spy_price=0,
+
             option_premium=0,
+
             entry_price=0,
+
             exit_price=0,
+
             profit_loss=0,
+
             pricing_mode="TEST",
+
             result="SUCCESS",
+
             error=""
+
         )
 
         return jsonify({
+
             "success": True,
-            "message":
-                "Google Sheets test sent",
-            "google_sheets":
-                result
+
+            "message": "Google Sheets test sent",
+
+            "google_sheets": result
+
         })
 
     except Exception as e:
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         })
 
 
-@app.route(
-    "/webhook",
-    methods=["POST"]
-)
+# ============================================================
+# TRADINGVIEW WEBHOOK
+# ============================================================
+
+@app.route("/webhook", methods=["POST"])
 def webhook():
 
     try:
 
-        data = request.get_json(
-            silent=True
-        )
+        data = request.json
 
         app.logger.info(
             f"Webhook received: {data}"
@@ -207,71 +277,79 @@ def webhook():
 
         if not data:
 
+            app.logger.error(
+                "No JSON payload received"
+            )
+
             return jsonify({
+
                 "success": False,
-                "error":
-                    "No JSON payload received"
+
+                "error": "No JSON payload received"
+
             })
+
 
         symbol = data.get(
             "symbol",
             "SPY"
         )
 
-        action = str(
-            data.get(
-                "action",
-                "BUY"
-            )
-        ).upper()
+        action = data.get(
+            "action",
+            "BUY"
+        )
 
-        option_type = str(
-            data.get(
-                "option_type",
-                "CALL"
-            )
-        ).upper()
+        option_type = data.get(
+            "option_type",
+            "CALL"
+        )
 
-        # ----------------------------------------------------
-        # BUY
-        # ----------------------------------------------------
 
-        if action == "BUY":
+        if action.upper() == "BUY":
 
             trade_result = paper_buy_spy(
                 option_type
             )
 
-        # ----------------------------------------------------
-        # SELL
-        # ----------------------------------------------------
-
-        elif action == "SELL":
+        elif action.upper() == "SELL":
 
             trade_result = paper_sell_spy()
 
         else:
 
             trade_result = {
+
                 "success": False,
-                "error":
-                    "Unknown action: "
-                    + action
+
+                "error": "Unknown action"
+
             }
+
 
         app.logger.info(
             f"Trade result: {trade_result}"
         )
 
+
         return jsonify({
+
             "success": True,
+
             "received_signal": {
+
                 "symbol": symbol,
+
                 "action": action,
+
                 "option_type": option_type
+
             },
+
             "trade_result": trade_result
+
         })
+
 
     except Exception as e:
 
@@ -280,14 +358,20 @@ def webhook():
         )
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         })
 
 
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=5000
+
     )
