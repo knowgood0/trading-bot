@@ -2,8 +2,7 @@ import os
 import json
 import sqlite3
 import urllib.request
-import urllib.error
-from datetime import datetime
+from datetime import datetime, timezone
 
 from webull.core.client import ApiClient
 from webull.trade.trade_client import TradeClient
@@ -18,6 +17,14 @@ GOOGLE_SHEETS_URL = (
     "AKfycbzYocjcr-9_YTeaplxao7WLF6aNWi41fDb8z3evhcBot2cy3h9QrU9Q7iePIveY9_mC"
     "/exec"
 )
+
+
+# ============================================================
+# TIME
+# ============================================================
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ============================================================
@@ -85,9 +92,9 @@ def _row_to_dict(row):
 
 def load_open_trade():
     """
-    Google Sheets is now the primary source of truth.
+    Google Sheets is the primary persistent source of truth.
 
-    SQLite is used only as a local fallback.
+    SQLite is used as a fallback if Google Sheets cannot be reached.
     """
 
     google_trade = get_open_trade_from_google_sheets()
@@ -174,7 +181,7 @@ def save_trade(trade):
             trade.get("pricing_mode"),
             trade.get("result"),
             trade.get("error"),
-            datetime.now().isoformat()
+            utc_now()
         )
     )
 
@@ -255,7 +262,11 @@ def send_to_google_sheets(data):
             method="POST"
         )
 
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(
+            request,
+            timeout=15
+        ) as response:
+
             response_body = response.read().decode("utf-8")
 
         try:
@@ -268,6 +279,7 @@ def send_to_google_sheets(data):
             }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -275,25 +287,24 @@ def send_to_google_sheets(data):
 
 
 def get_open_trade_from_google_sheets():
-    """
-    Ask the Google Apps Script for the current OPEN trade.
-
-    This is what makes the trade persistent across Render
-    restarts/spin-downs.
-    """
 
     try:
+
         url = GOOGLE_SHEETS_URL + "?action=get_open_trade"
 
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "TradingBot/1.0"
+                "User-Agent": "TradingBot/2.0"
             },
             method="GET"
         )
 
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(
+            request,
+            timeout=15
+        ) as response:
+
             response_body = response.read().decode("utf-8")
 
         result = json.loads(response_body)
@@ -309,6 +320,7 @@ def get_open_trade_from_google_sheets():
         return trade
 
     except Exception:
+
         return None
 
 
@@ -321,9 +333,6 @@ def update_google_trade_closed(
     result="CLOSED",
     error=""
 ):
-    """
-    Tell Google Sheets to update the OPEN trade to CLOSED.
-    """
 
     return send_to_google_sheets(
         {
@@ -334,7 +343,8 @@ def update_google_trade_closed(
             "profit_loss": profit_loss,
             "pricing_mode": pricing_mode,
             "result": result,
-            "error": error
+            "error": error,
+            "timestamp": utc_now()
         }
     )
 
@@ -356,8 +366,9 @@ def journal_trade(
     result="",
     error=""
 ):
+
     data = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_now(),
         "event": event,
         "action": action,
         "symbol": symbol,
@@ -383,6 +394,7 @@ def journal_trade(
 # ============================================================
 
 def get_clients():
+
     app_key = os.environ.get("WEBULL_APP_KEY")
     app_secret = os.environ.get("WEBULL_APP_SECRET")
 
@@ -404,10 +416,14 @@ def get_clients():
 
 
 def test_webull_connection():
+
     try:
+
         trade_client, _ = get_clients()
 
-        response = trade_client.account_v2.get_account_list()
+        response = (
+            trade_client.account_v2.get_account_list()
+        )
 
         return {
             "success": True,
@@ -415,6 +431,7 @@ def test_webull_connection():
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -426,7 +443,9 @@ def test_webull_connection():
 # ============================================================
 
 def get_spy_price():
+
     try:
+
         _, data_client = get_clients()
 
         response = data_client.market_data.get_snapshot(
@@ -440,6 +459,7 @@ def get_spy_price():
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
@@ -447,6 +467,7 @@ def get_spy_price():
 
 
 def extract_spy_price():
+
     result = get_spy_price()
 
     if not result.get("success"):
@@ -455,6 +476,7 @@ def extract_spy_price():
     data = result.get("data")
 
     try:
+
         if isinstance(data, list) and len(data) > 0:
             return float(data[0]["price"])
 
@@ -462,6 +484,7 @@ def extract_spy_price():
             return float(data["price"])
 
     except Exception:
+
         return None
 
     return None
@@ -472,35 +495,42 @@ def extract_spy_price():
 # ============================================================
 
 def get_option_contracts(option_type="CALL"):
-    """
-    Retrieve today's SPY option contracts.
-
-    Supports:
-        CALL
-        PUT
-    """
 
     try:
+
         _, data_client = get_clients()
 
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(
+            timezone.utc
+        ).strftime("%Y-%m-%d")
 
-        normalized_type = str(option_type).upper()
+        normalized_type = str(
+            option_type
+        ).upper()
 
-        if normalized_type not in ("CALL", "PUT"):
+        if normalized_type not in (
+            "CALL",
+            "PUT"
+        ):
+
             return {
-                "error": "Invalid option type: " + normalized_type
+                "error":
+                    "Invalid option type: "
+                    + normalized_type
             }
 
-        response = data_client.instrument.get_option_contracts(
-            category=Category.US_OPTION.name,
-            underlying_symbols="SPY",
-            status="LISTING",
-            start_date=today,
-            end_date=today,
-            option_type=normalized_type,
-            style="AMERICAN",
-            page_size=1000
+        response = (
+            data_client.instrument
+            .get_option_contracts(
+                category=Category.US_OPTION.name,
+                underlying_symbols="SPY",
+                status="LISTING",
+                start_date=today,
+                end_date=today,
+                option_type=normalized_type,
+                style="AMERICAN",
+                page_size=1000
+            )
         )
 
         result = response.json()
@@ -509,100 +539,153 @@ def get_option_contracts(option_type="CALL"):
 
             if (
                 "data" in result
-                and isinstance(result["data"], list)
+                and isinstance(
+                    result["data"],
+                    list
+                )
             ):
+
                 return result["data"]
 
             if (
                 "items" in result
-                and isinstance(result["items"], list)
+                and isinstance(
+                    result["items"],
+                    list
+                )
             ):
+
                 return result["items"]
 
         return result
 
     except Exception as e:
+
         return {
             "error": str(e)
         }
 
 
-def select_0dte_atm_contract(option_type="CALL"):
-    """
-    Select the closest-to-ATM 0DTE SPY option.
-
-    CALL selects a call.
-    PUT selects a put.
-    """
+def select_0dte_atm_contract(
+    option_type="CALL"
+):
 
     try:
-        normalized_type = str(option_type).upper()
 
-        if normalized_type not in ("CALL", "PUT"):
+        normalized_type = str(
+            option_type
+        ).upper()
+
+        if normalized_type not in (
+            "CALL",
+            "PUT"
+        ):
+
             return {
                 "success": False,
-                "error": "Option type must be CALL or PUT"
+                "error":
+                    "Option type must be CALL or PUT"
             }
 
-        contracts = get_option_contracts(normalized_type)
+        contracts = get_option_contracts(
+            normalized_type
+        )
 
-        if isinstance(contracts, dict) and "error" in contracts:
+        if (
+            isinstance(contracts, dict)
+            and "error" in contracts
+        ):
+
             return {
                 "success": False,
                 "error": contracts["error"]
             }
 
-        if not isinstance(contracts, list):
+        if not isinstance(
+            contracts,
+            list
+        ):
+
             return {
                 "success": False,
-                "error": "Unexpected option contract response"
+                "error":
+                    "Unexpected option contract response"
             }
 
         spy_price = extract_spy_price()
 
         if spy_price is None:
+
             return {
                 "success": False,
-                "error": "Unable to get current SPY price"
+                "error":
+                    "Unable to get current SPY price"
             }
 
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(
+            timezone.utc
+        ).strftime("%Y-%m-%d")
 
         valid = []
 
         for contract in contracts:
 
             try:
+
                 expiration = (
-                    contract.get("expiration_date")
-                    or contract.get("expiration")
+                    contract.get(
+                        "expiration_date"
+                    )
+                    or contract.get(
+                        "expiration"
+                    )
                     or ""
                 )
 
-                if isinstance(expiration, str):
+                if isinstance(
+                    expiration,
+                    str
+                ):
+
                     expiration = expiration[:10]
 
-                strike_value = contract.get("strike_price")
+                strike_value = contract.get(
+                    "strike_price"
+                )
 
                 if strike_value is None:
                     continue
 
-                strike = float(strike_value)
+                strike = float(
+                    strike_value
+                )
 
                 contract_type = str(
-                    contract.get("option_type") or ""
+                    contract.get(
+                        "option_type"
+                    )
+                    or ""
                 ).upper()
 
                 def_type = str(
-                    contract.get("def_type") or ""
+                    contract.get(
+                        "def_type"
+                    )
+                    or ""
                 ).upper()
 
                 style = str(
-                    contract.get("style") or ""
+                    contract.get(
+                        "style"
+                    )
+                    or ""
                 ).upper()
 
                 tradable_status = str(
-                    contract.get("tradable_status") or ""
+                    contract.get(
+                        "tradable_status"
+                    )
+                    or ""
                 ).upper()
 
                 if (
@@ -612,82 +695,122 @@ def select_0dte_atm_contract(option_type="CALL"):
                     and contract_type == normalized_type
                     and expiration == today
                 ):
-                    valid.append(contract)
+
+                    valid.append(
+                        contract
+                    )
 
             except Exception:
+
                 continue
 
         if not valid:
+
             return {
                 "success": False,
-                "error": (
+                "error":
                     "No valid 0DTE "
                     + normalized_type
                     + " contracts found for today"
-                )
             }
 
         valid.sort(
-            key=lambda x: abs(
-                float(x["strike_price"]) - spy_price
-            )
+            key=lambda x:
+                abs(
+                    float(
+                        x["strike_price"]
+                    )
+                    - spy_price
+                )
         )
 
         selected = valid[0]
-
-        selected_symbol = selected.get("symbol")
 
         return {
             "success": True,
             "spy_price": spy_price,
             "selected_contract": {
-                "symbol": selected_symbol,
-                "type": normalized_type,
-                "strike": selected.get("strike_price"),
-                "expiration": (
-                    selected.get("expiration_date")
-                    or selected.get("expiration")
-                ),
-                "raw": selected
+                "symbol":
+                    selected.get("symbol"),
+
+                "type":
+                    normalized_type,
+
+                "strike":
+                    selected.get(
+                        "strike_price"
+                    ),
+
+                "expiration":
+                    (
+                        selected.get(
+                            "expiration_date"
+                        )
+                        or selected.get(
+                            "expiration"
+                        )
+                    ),
+
+                "raw":
+                    selected
             }
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "error": str(e)
         }
 
 
-def select_contract(option_type="CALL"):
-    return select_0dte_atm_contract(option_type)
+def select_contract(
+    option_type="CALL"
+):
+
+    return select_0dte_atm_contract(
+        option_type
+    )
 
 
 # ============================================================
 # OPTION PRICING
 # ============================================================
 
-def get_option_price(option_symbol):
+def get_option_price(
+    option_symbol
+):
+
     try:
+
         _, data_client = get_clients()
 
-        response = data_client.option_market_data.get_option_snapshot(
-            option_symbol,
-            Category.US_OPTION.name
+        response = (
+            data_client.option_market_data
+            .get_option_snapshot(
+                option_symbol,
+                Category.US_OPTION.name
+            )
         )
 
         data = response.json()
 
-        premium = None
+        if (
+            isinstance(data, list)
+            and data
+        ):
 
-        if isinstance(data, list) and data:
             item = data[0]
 
         elif isinstance(data, dict):
+
             item = data
 
         else:
+
             item = {}
+
+        premium = None
 
         for field in (
             "latest_price",
@@ -697,8 +820,13 @@ def get_option_price(option_symbol):
             "close",
             "mark_price"
         ):
+
             if item.get(field) is not None:
-                premium = float(item[field])
+
+                premium = float(
+                    item[field]
+                )
+
                 break
 
         return {
@@ -708,6 +836,7 @@ def get_option_price(option_symbol):
         }
 
     except Exception as e:
+
         return {
             "success": False,
             "premium": None,
@@ -719,36 +848,46 @@ def get_option_price(option_symbol):
 # PAPER BUY
 # ============================================================
 
-def paper_buy_spy(option_type="CALL"):
-    """
-    Open a paper trade.
+def paper_buy_spy(
+    option_type="CALL"
+):
 
-    CALL = bullish TradingView signal.
-    PUT  = bearish TradingView signal.
-    """
+    normalized_type = str(
+        option_type
+    ).upper()
 
-    normalized_type = str(option_type).upper()
+    if normalized_type not in (
+        "CALL",
+        "PUT"
+    ):
 
-    if normalized_type not in ("CALL", "PUT"):
         return {
             "success": False,
-            "error": "Option type must be CALL or PUT"
+            "error":
+                "Option type must be CALL or PUT"
         }
 
     existing_trade = load_open_trade()
 
     if existing_trade:
+
         return {
             "success": False,
-            "error": "A paper trade is already open",
-            "trade": existing_trade
+            "error":
+                "A paper trade is already open",
+            "trade":
+                existing_trade
         }
 
-    contract_result = select_0dte_atm_contract(
-        normalized_type
+    contract_result = (
+        select_0dte_atm_contract(
+            normalized_type
+        )
     )
 
-    if not contract_result.get("success"):
+    if not contract_result.get(
+        "success"
+    ):
 
         error = contract_result.get(
             "error",
@@ -766,26 +905,46 @@ def paper_buy_spy(option_type="CALL"):
 
         return contract_result
 
-    selected = contract_result["selected_contract"]
+    selected = (
+        contract_result[
+            "selected_contract"
+        ]
+    )
 
-    spy_price = contract_result.get("spy_price")
+    spy_price = (
+        contract_result.get(
+            "spy_price"
+        )
+    )
 
-    contract_symbol = selected.get("symbol")
-    expiration = selected.get("expiration")
-    strike = selected.get("strike")
+    contract_symbol = (
+        selected.get("symbol")
+    )
+
+    expiration = (
+        selected.get("expiration")
+    )
+
+    strike = (
+        selected.get("strike")
+    )
 
     premium_result = get_option_price(
         contract_symbol
     )
 
-    entry_premium = premium_result.get("premium")
+    entry_premium = (
+        premium_result.get(
+            "premium"
+        )
+    )
 
     if entry_premium is not None:
         pricing_mode = "OPTION_PREMIUM"
     else:
         pricing_mode = "UNDERLYING_ONLY"
 
-    entry_time = datetime.now().isoformat()
+    entry_time = utc_now()
 
     trade = {
         "open": True,
@@ -804,7 +963,6 @@ def paper_buy_spy(option_type="CALL"):
         "error": None
     }
 
-    # Keep local SQLite copy as a backup.
     save_trade(trade)
 
     google_result = journal_trade(
@@ -829,12 +987,12 @@ def paper_buy_spy(option_type="CALL"):
 
     return {
         "success": True,
-        "message": (
+        "message":
             "Paper BUY executed: "
-            + normalized_type
-        ),
+            + normalized_type,
         "trade": trade,
-        "google_sheets": google_result
+        "google_sheets":
+            google_result
     }
 
 
@@ -843,12 +1001,6 @@ def paper_buy_spy(option_type="CALL"):
 # ============================================================
 
 def paper_sell_spy():
-    """
-    Close the currently OPEN trade.
-
-    The open trade is retrieved from Google Sheets first,
-    so Render restarts do not erase the position.
-    """
 
     paper_trade = load_open_trade()
 
@@ -864,10 +1016,13 @@ def paper_sell_spy():
 
         return {
             "success": False,
-            "error": "No open paper trade"
+            "error":
+                "No open paper trade"
         }
 
-    current_spy_price = extract_spy_price()
+    current_spy_price = (
+        extract_spy_price()
+    )
 
     if current_spy_price is None:
 
@@ -884,30 +1039,44 @@ def paper_sell_spy():
                 ""
             ),
             result="FAILED",
-            error="Unable to get current SPY price"
+            error:
+                "Unable to get current SPY price"
         )
 
         return {
             "success": False,
-            "error": "Unable to get current SPY price"
+            "error":
+                "Unable to get current SPY price"
         }
 
-    contract_symbol = paper_trade.get("contract")
+    contract_symbol = (
+        paper_trade.get(
+            "contract"
+        )
+    )
 
     if not contract_symbol:
+
         return {
             "success": False,
-            "error": "Open trade is missing contract symbol"
+            "error":
+                "Open trade is missing contract symbol"
         }
 
     premium_result = get_option_price(
         contract_symbol
     )
 
-    exit_premium = premium_result.get("premium")
+    exit_premium = (
+        premium_result.get(
+            "premium"
+        )
+    )
 
-    entry_premium = paper_trade.get(
-        "entry_premium"
+    entry_premium = (
+        paper_trade.get(
+            "entry_premium"
+        )
     )
 
     if (
@@ -924,21 +1093,27 @@ def paper_sell_spy():
             / entry_premium
         ) * 100
 
-        pricing_mode = "OPTION_PREMIUM"
+        pricing_mode = (
+            "OPTION_PREMIUM"
+        )
 
     else:
 
-        entry_spy_price = paper_trade.get(
-            "entry_price"
+        entry_spy_price = (
+            paper_trade.get(
+                "entry_price"
+            )
         )
 
         if (
             entry_spy_price is None
             or entry_spy_price == 0
         ):
+
             return {
                 "success": False,
-                "error": "Missing SPY entry price"
+                "error":
+                    "Missing SPY entry price"
             }
 
         option_type = str(
@@ -968,34 +1143,58 @@ def paper_sell_spy():
                 / entry_spy_price
             ) * 100
 
-        pricing_mode = "UNDERLYING_ONLY"
+        pricing_mode = (
+            "UNDERLYING_ONLY"
+        )
 
     profit_loss = round(
         profit_loss,
         2
     )
 
-    # Update the persistent Google Sheet record.
-    google_result = update_google_trade_closed(
-        contract=contract_symbol,
-        exit_price=current_spy_price,
-        exit_premium=exit_premium,
-        profit_loss=profit_loss,
-        pricing_mode=pricing_mode,
-        result="CLOSED",
-        error=(
-            premium_result.get("error")
-            if exit_premium is None
-            else ""
+    # IMPORTANT:
+    # Do not close the local trade until Google confirms
+    # the close operation succeeded.
+
+    google_result = (
+        update_google_trade_closed(
+            contract=contract_symbol,
+            exit_price=current_spy_price,
+            exit_premium=exit_premium,
+            profit_loss=profit_loss,
+            pricing_mode=pricing_mode,
+            result="CLOSED",
+            error=(
+                premium_result.get(
+                    "error"
+                )
+                if exit_premium is None
+                else ""
+            )
         )
     )
 
-    # Update the local backup as well, if possible.
-    local_trade_id = paper_trade.get("id")
+    if not google_result.get(
+        "success"
+    ):
+
+        return {
+            "success": False,
+            "error":
+                "Google Sheets failed to record "
+                "the sell. Trade remains OPEN.",
+            "google_sheets":
+                google_result
+        }
+
+    local_trade_id = (
+        paper_trade.get("id")
+    )
 
     if local_trade_id is not None:
 
         try:
+
             close_trade(
                 local_trade_id,
                 current_spy_price,
@@ -1005,51 +1204,109 @@ def paper_sell_spy():
             )
 
         except Exception:
+
             pass
 
     return {
         "success": True,
-        "message": "Paper SELL executed",
+        "message":
+            "Paper SELL executed",
         "trade": {
-            "contract": contract_symbol,
-            "option_type": paper_trade.get(
-                "option_type"
-            ),
-            "entry_price": paper_trade.get(
-                "entry_price"
-            ),
-            "entry_premium": entry_premium,
-            "exit_price": current_spy_price,
-            "exit_premium": exit_premium,
-            "profit_loss": profit_loss,
-            "pricing_mode": pricing_mode,
-            "result": "CLOSED"
+            "contract":
+                contract_symbol,
+
+            "option_type":
+                paper_trade.get(
+                    "option_type"
+                ),
+
+            "entry_price":
+                paper_trade.get(
+                    "entry_price"
+                ),
+
+            "entry_premium":
+                entry_premium,
+
+            "exit_price":
+                current_spy_price,
+
+            "exit_premium":
+                exit_premium,
+
+            "profit_loss":
+                profit_loss,
+
+            "pricing_mode":
+                pricing_mode,
+
+            "result":
+                "CLOSED"
         },
-        "google_sheets": google_result
+
+        "google_sheets":
+            google_result
     }
 
 
 # ============================================================
-# DEBUG / TEST HELPERS
+# DEBUG HELPERS
 # ============================================================
 
 def get_persistent_open_trade():
+
     return get_open_trade_from_google_sheets()
 
 
 def test_google_sheets_connection():
-    try:
 
-        trade = get_open_trade_from_google_sheets()
+    trade = get_open_trade_from_google_sheets()
 
-        return {
-            "success": True,
-            "open_trade": trade
-        }
+    return {
+        "success": True,
+        "open_trade": trade
+    }
 
-    except Exception as e:
 
-        return {
-            "success": False,
-            "error": str(e)
-        }
+def paper_trade_status():
+
+    trade = load_open_trade()
+
+    return {
+        "success": True,
+        "open_trade": trade
+    }
+
+
+def debug_option_chain():
+
+    contracts = get_option_contracts(
+        "CALL"
+    )
+
+    return {
+        "success": True,
+        "contracts": contracts
+    }
+
+
+def debug_market_data():
+
+    return get_spy_price()
+
+
+def test_options():
+
+    call = select_contract(
+        "CALL"
+    )
+
+    put = select_contract(
+        "PUT"
+    )
+
+    return {
+        "success": True,
+        "call": call,
+        "put": put
+    }
