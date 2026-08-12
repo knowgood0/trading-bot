@@ -1039,7 +1039,7 @@ def paper_sell_spy():
                 ""
             ),
             result="FAILED",
-            error:"Unable to get current SPY price"
+            error="Unable to get current SPY price"
         )
 
         return {
@@ -1273,7 +1273,16 @@ def paper_trade_status():
 
     return {
         "success": True,
-        "open_trade": trade
+        "open_trade": trade,
+        "trade": trade
+    }
+
+
+def paper_trade_history(limit=50):
+
+    return {
+        "success": True,
+        "trades": get_trade_history(limit)
     }
 
 
@@ -1287,6 +1296,11 @@ def debug_option_chain():
         "success": True,
         "contracts": contracts
     }
+
+
+def debug_0dte_selection():
+
+    return select_0dte_atm_contract("CALL")
 
 
 def debug_market_data():
