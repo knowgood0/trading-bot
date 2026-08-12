@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 
 from webull_client import (
     test_webull_connection,
+    account_diagnostic,
     select_contract,
     get_spy_price,
     get_option_price,
@@ -12,8 +13,7 @@ from webull_client import (
     paper_trade_status,
     get_trade_history,
     journal_trade,
-    test_options,
-    preview_webull_option_order
+    test_options
 )
 
 
@@ -32,6 +32,10 @@ def home():
     })
 
 
+# ============================================================
+# WEBULL TEST
+# ============================================================
+
 @app.route("/webull-test")
 def webull_test():
 
@@ -39,6 +43,22 @@ def webull_test():
         test_webull_connection()
     )
 
+
+# ============================================================
+# ACCOUNT DIAGNOSTIC
+# ============================================================
+
+@app.route("/account-diagnostic")
+def account_diagnostic_test():
+
+    return jsonify(
+        account_diagnostic()
+    )
+
+
+# ============================================================
+# CONTRACT TEST
+# ============================================================
 
 @app.route("/select-contract")
 def select_contract_test():
@@ -53,6 +73,10 @@ def select_contract_test():
     )
 
 
+# ============================================================
+# SPY PRICE
+# ============================================================
+
 @app.route("/spy-price")
 def spy_price_test():
 
@@ -60,6 +84,10 @@ def spy_price_test():
         get_spy_price()
     )
 
+
+# ============================================================
+# OPTION PRICE
+# ============================================================
 
 @app.route("/option-price")
 def option_price_test():
@@ -83,6 +111,10 @@ def option_price_test():
         get_option_price(symbol)
     )
 
+
+# ============================================================
+# DEBUG
+# ============================================================
 
 @app.route("/debug-option-chain")
 def debug_option_chain_test():
@@ -109,39 +141,8 @@ def options_test():
 
 
 # ============================================================
-# WEBULL OPTION ORDER PREVIEW
+# PAPER BUY
 # ============================================================
-
-@app.route("/webull-option-preview")
-def webull_option_preview():
-
-    option_type = request.args.get(
-        "option_type",
-        "CALL"
-    )
-
-    try:
-
-        result = preview_webull_option_order(
-            option_type
-        )
-
-        return jsonify(result)
-
-    except Exception as e:
-
-        app.logger.exception(
-            "Webull option preview exception"
-        )
-
-        return jsonify({
-
-            "success": False,
-
-            "error": str(e)
-
-        })
-
 
 @app.route("/paper-buy")
 def paper_buy_test():
@@ -156,6 +157,10 @@ def paper_buy_test():
     )
 
 
+# ============================================================
+# PAPER SELL
+# ============================================================
+
 @app.route("/paper-sell")
 def paper_sell_test():
 
@@ -164,6 +169,10 @@ def paper_sell_test():
     )
 
 
+# ============================================================
+# PAPER STATUS
+# ============================================================
+
 @app.route("/paper-status")
 def paper_status_test():
 
@@ -171,6 +180,10 @@ def paper_status_test():
         paper_trade_status()
     )
 
+
+# ============================================================
+# PAPER HISTORY
+# ============================================================
 
 @app.route("/paper-history")
 def paper_history_test():
@@ -199,6 +212,10 @@ def paper_history_test():
 
         })
 
+
+# ============================================================
+# GOOGLE TEST
+# ============================================================
 
 @app.route("/google-test")
 def google_test():
@@ -285,7 +302,8 @@ def webhook():
 
                 "success": False,
 
-                "error": "No JSON payload received"
+                "error":
+                    "No JSON payload received"
 
             })
 
@@ -322,7 +340,8 @@ def webhook():
 
                 "success": False,
 
-                "error": "Unknown action"
+                "error":
+                    "Unknown action"
 
             }
 
@@ -346,7 +365,8 @@ def webhook():
 
             },
 
-            "trade_result": trade_result
+            "trade_result":
+                trade_result
 
         })
 
@@ -365,6 +385,10 @@ def webhook():
 
         })
 
+
+# ============================================================
+# LOCAL DEVELOPMENT
+# ============================================================
 
 if __name__ == "__main__":
 
