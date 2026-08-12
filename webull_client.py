@@ -26,13 +26,13 @@ GOOGLE_SHEETS_URL = (
 
 WEBULL_ENDPOINT = "api.sandbox.webull.com"
 
-# WEBULL SANDBOX ACCOUNT RETURNED BY THE API
+# VERIFIED WEBULL SANDBOX ACCOUNT
 #
 # Individual Margin
 # Account number: DEA73AV9
 # API account_id: DQIO6B3HUDJB14G6GF5K0J4J7B
 #
-# PAPER / SANDBOX ONLY.
+# SANDBOX ONLY.
 WEBULL_ACCOUNT_ID = "DQIO6B3HUDJB14G6GF5K0J4J7B"
 WEBULL_ACCOUNT_NUMBER = "DEA73AV9"
 WEBULL_ACCOUNT_NAME = "Individual Margin"
@@ -44,12 +44,6 @@ WEBULL_ACCOUNT_NAME = "Individual Margin"
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
-
-
-def utc_webull_timestamp():
-    return datetime.now(timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
 
 
 def make_client_order_id(prefix="TV"):
@@ -210,6 +204,11 @@ def save_trade(trade):
     )
 
     connection.commit()
+
+    trade["id"] = connection.execute(
+        "SELECT last_insert_rowid()"
+    ).fetchone()[0]
+
     connection.close()
 
 
@@ -303,7 +302,6 @@ def send_to_google_sheets(data):
             }
 
     except Exception as e:
-
         return {
             "success": False,
             "error": str(e)
@@ -313,7 +311,6 @@ def send_to_google_sheets(data):
 def get_open_trade_from_google_sheets():
 
     try:
-
         url = (
             GOOGLE_SHEETS_URL
             + "?action=get_open_trade"
@@ -322,7 +319,7 @@ def get_open_trade_from_google_sheets():
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "TradingBot/4.0"
+                "User-Agent": "TradingBot/5.0"
             },
             method="GET"
         )
@@ -452,6 +449,7 @@ def get_clients():
 
 
 def resolve_account():
+
     return {
         "account_id": WEBULL_ACCOUNT_ID,
         "account_number": WEBULL_ACCOUNT_NUMBER,
@@ -559,7 +557,7 @@ def _query_account(account_id, account_name):
 
     result["success"] = (
         result["balance_status"] == 200
-        or result["positions_status"] == 200
+        and result["positions_status"] == 200
     )
 
     return result
@@ -707,7 +705,6 @@ def get_webull_option_position(option_symbol):
         )
 
         if symbol == option_symbol:
-
             matches.append(position)
             continue
 
@@ -1020,6 +1017,7 @@ def select_0dte_atm_contract(option_type="CALL"):
             "success": True,
             "spy_price": spy_price,
             "selected_contract": {
+
                 "symbol":
                     selected.get("symbol"),
 
@@ -1094,15 +1092,12 @@ def get_option_price(option_symbol):
         data = response.json()
 
         if isinstance(data, list) and data:
-
             item = data[0]
 
         elif isinstance(data, dict):
-
             item = data
 
         else:
-
             item = {}
 
         premium = None
@@ -1140,11 +1135,11 @@ def get_option_price(option_symbol):
 
 
 # ============================================================
-# ACTUAL WEBULL SANDBOX OPTION ORDER
+# WEBULL SANDBOX OPTION ORDER
 # ============================================================
 
 def _webull_place_option_order(
-    symbol,
+    option_symbol,
     option_type,
     side,
     quantity,
@@ -1164,6 +1159,10 @@ def _webull_place_option_order(
 
         normalized_side = str(
             side
+        ).upper()
+
+        normalized_intent = str(
+            position_intent
         ).upper()
 
         if normalized_type not in (
@@ -1188,9 +1187,53 @@ def _webull_place_option_order(
                     "Invalid order side"
             }
 
+        if normalized_intent not in (
+            "BUY_TO_OPEN",
+            "BUY_TO_CLOSE",
+            "SELL_TO_OPEN",
+            "SELL_TO_CLOSE"
+        ):
+
+            return {
+                "success": False,
+                "error":
+                    "Invalid position intent"
+            }
+
+        if limit_price is None:
+
+            return {
+                "success": False,
+                "error":
+                    "Missing option limit price"
+            }
+
+        if strike_price is None:
+
+            return {
+                "success": False,
+                "error":
+                    "Missing option strike price"
+            }
+
+        if expiration is None:
+
+            return {
+                "success": False,
+                "error":
+                    "Missing option expiration"
+            }
+
         client_order_id = make_client_order_id(
             "TV"
         )
+
+        # ----------------------------------------------------
+        # Webull unified options order.
+        #
+        # The top-level symbol is the actual OPTION symbol.
+        # The leg contains the option contract details.
+        # ----------------------------------------------------
 
         order = {
 
@@ -1210,7 +1253,7 @@ def _webull_place_option_order(
                 "QTY",
 
             "symbol":
-                symbol,
+                option_symbol,
 
             "market":
                 "US",
@@ -1231,7 +1274,7 @@ def _webull_place_option_order(
                 "DAY",
 
             "position_intent":
-                position_intent,
+                normalized_intent,
 
             "legs": [
 
@@ -1241,6 +1284,9 @@ def _webull_place_option_order(
 
                     "market":
                         "US",
+
+                    "symbol":
+                        option_symbol,
 
                     "option_expire_date":
                         str(expiration)[:10],
@@ -1255,17 +1301,18 @@ def _webull_place_option_order(
                         normalized_side,
 
                     "strike_price":
-                        f"{float(strike_price):.2f}",
-
-                    "symbol":
-                        symbol
+                        f"{float(strike_price):.2f}"
                 }
             ]
         }
 
+        # ----------------------------------------------------
+        # Webull SDK order endpoint.
+        # ----------------------------------------------------
+
         response = (
             trade_client.order_v2
-            .place_option(
+            .place_order(
                 WEBULL_ACCOUNT_ID,
                 [order]
             )
@@ -1274,7 +1321,9 @@ def _webull_place_option_order(
         response_data = response.json()
 
         return {
-            "success": True,
+            "success":
+                200 <= response.status_code < 300,
+
             "status_code":
                 response.status_code,
 
@@ -1320,11 +1369,15 @@ def test_order_detail(client_order_id):
         )
 
         return {
-            "success": True,
+            "success":
+                200 <= response.status_code < 300,
+
             "status_code":
                 response.status_code,
+
             "account":
                 resolve_account(),
+
             "order":
                 response.json()
         }
@@ -1425,7 +1478,7 @@ def paper_buy_spy(option_type="CALL"):
         return {
             "success": False,
             "error":
-                "Selected option is missing OCC symbol"
+                "Selected option is missing symbol"
         }
 
     if strike is None or expiration is None:
@@ -1477,9 +1530,13 @@ def paper_buy_spy(option_type="CALL"):
                 premium_result
         }
 
+    # --------------------------------------------------------
+    # ACTUAL WEBULL SANDBOX BUY
+    # --------------------------------------------------------
+
     order_result = (
         _webull_place_option_order(
-            symbol="SPY",
+            option_symbol=contract_symbol,
             option_type=normalized_type,
             side="BUY",
             quantity=1,
@@ -1503,9 +1560,12 @@ def paper_buy_spy(option_type="CALL"):
             spy_price=spy_price,
             option_premium=entry_premium,
             result="FAILED",
-            error=order_result.get(
-                "error",
-                "Webull BUY failed"
+            error=str(
+                order_result.get(
+                    "response"
+                    or "error",
+                    "Webull BUY failed"
+                )
             )
         )
 
@@ -1560,19 +1620,14 @@ def paper_buy_spy(option_type="CALL"):
 
     return {
         "success": True,
-
         "message":
             "Webull Sandbox BUY accepted",
-
         "account":
             resolve_account(),
-
         "trade":
             trade,
-
         "order":
             order_result,
-
         "google_sheets":
             google_result
     }
@@ -1693,9 +1748,13 @@ def paper_sell_spy():
         "expiration"
     )
 
+    # --------------------------------------------------------
+    # ACTUAL WEBULL SANDBOX SELL
+    # --------------------------------------------------------
+
     order_result = (
         _webull_place_option_order(
-            symbol="SPY",
+            option_symbol=contract_symbol,
             option_type=option_type,
             side="SELL",
             quantity=1,
@@ -1725,9 +1784,12 @@ def paper_sell_spy():
             profit_loss=profit_loss,
             pricing_mode=pricing_mode,
             result="FAILED",
-            error=order_result.get(
-                "error",
-                "Webull SELL failed"
+            error=str(
+                order_result.get(
+                    "response"
+                    or "error",
+                    "Webull SELL failed"
+                )
             )
         )
 
@@ -1770,18 +1832,14 @@ def paper_sell_spy():
             )
 
         except Exception:
-
             pass
 
     return {
         "success": True,
-
         "message":
             "Webull Sandbox SELL accepted",
-
         "account":
             resolve_account(),
-
         "trade": {
 
             "contract":
@@ -1813,10 +1871,8 @@ def paper_sell_spy():
             "result":
                 "CLOSED"
         },
-
         "order":
             order_result,
-
         "google_sheets":
             google_result
     }
