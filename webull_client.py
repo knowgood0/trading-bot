@@ -1158,6 +1158,23 @@ def get_option_price(option_symbol):
 
 # ============================================================
 # WEBULL SANDBOX OPTION ORDER
+#
+# IMPORTANT:
+# Options MUST use:
+#
+#     trade_client.order_v2.place_option()
+#
+# NOT:
+#
+#     trade_client.order_v2.place_order()
+#
+# place_order() is the generic STOCK order endpoint.
+# place_option() calls Webull's dedicated option endpoint:
+#
+#     /openapi/trade/option/order/place
+#
+# The SDK also automatically adds the US_OPTION category
+# header from the option leg.
 # ============================================================
 
 def _webull_place_option_order(
@@ -1250,6 +1267,16 @@ def _webull_place_option_order(
             "TV"
         )
 
+        # ----------------------------------------------------
+        # THIS IS THE IMPORTANT CHANGE.
+        #
+        # Webull's dedicated option endpoint expects the
+        # option contract information in the leg.
+        #
+        # The SDK's place_option() method also automatically
+        # adds the category=US_OPTION header.
+        # ----------------------------------------------------
+
         order = {
 
             "client_order_id":
@@ -1321,15 +1348,30 @@ def _webull_place_option_order(
             ]
         }
 
+        # ----------------------------------------------------
+        # PROPER OPTION API
+        # ----------------------------------------------------
+
         response = (
             trade_client.order_v2
-            .place_order(
+            .place_option(
                 WEBULL_ACCOUNT_ID,
                 [order]
             )
         )
 
-        response_data = response.json()
+        try:
+            response_data = response.json()
+
+        except Exception:
+            response_data = {
+                "raw_response":
+                    getattr(
+                        response,
+                        "text",
+                        ""
+                    )
+            }
 
         return {
             "success":
@@ -1348,7 +1390,13 @@ def _webull_place_option_order(
                 response_data,
 
             "prepared_order":
-                order
+                order,
+
+            "endpoint":
+                "/openapi/trade/option/order/place",
+
+            "order_api":
+                "OPTION"
         }
 
     except Exception as e:
@@ -1357,7 +1405,8 @@ def _webull_place_option_order(
             "success": False,
             "account":
                 resolve_account(),
-            "error": str(e)
+            "error": str(e),
+            "order_api": "OPTION"
         }
 
 
@@ -1379,6 +1428,19 @@ def test_order_detail(client_order_id):
             )
         )
 
+        try:
+            order_data = response.json()
+
+        except Exception:
+            order_data = {
+                "raw_response":
+                    getattr(
+                        response,
+                        "text",
+                        ""
+                    )
+            }
+
         return {
             "success":
                 200 <= response.status_code < 300,
@@ -1390,7 +1452,7 @@ def test_order_detail(client_order_id):
                 resolve_account(),
 
             "order":
-                response.json()
+                order_data
         }
 
     except Exception as e:
@@ -1556,6 +1618,15 @@ def paper_buy_spy(option_type="CALL"):
 
     if not order_result.get("success"):
 
+        error_detail = (
+            order_result.get("response")
+            if order_result.get("response") is not None
+            else order_result.get(
+                "error",
+                "Webull BUY failed"
+            )
+        )
+
         journal_trade(
             event="WEBULL_BUY_FAILED",
             action="BUY",
@@ -1567,19 +1638,13 @@ def paper_buy_spy(option_type="CALL"):
             spy_price=spy_price,
             option_premium=entry_premium,
             result="FAILED",
-            error=str(
-                order_result.get(
-                    "response"
-                    or "error",
-                    "Webull BUY failed"
-                )
-            )
+            error=str(error_detail)
         )
 
         return {
             "success": False,
             "message":
-                "Webull Sandbox BUY was NOT accepted",
+                "Webull Sandbox OPTION BUY was NOT accepted",
             "contract":
                 contract_symbol,
             "premium":
@@ -1628,7 +1693,7 @@ def paper_buy_spy(option_type="CALL"):
     return {
         "success": True,
         "message":
-            "Webull Sandbox BUY accepted",
+            "Webull Sandbox OPTION BUY accepted",
         "account":
             resolve_account(),
         "trade":
@@ -1770,6 +1835,15 @@ def paper_sell_spy():
 
     if not order_result.get("success"):
 
+        error_detail = (
+            order_result.get("response")
+            if order_result.get("response") is not None
+            else order_result.get(
+                "error",
+                "Webull SELL failed"
+            )
+        )
+
         journal_trade(
             event="WEBULL_SELL_FAILED",
             action="SELL",
@@ -1787,19 +1861,13 @@ def paper_sell_spy():
             profit_loss=profit_loss,
             pricing_mode=pricing_mode,
             result="FAILED",
-            error=str(
-                order_result.get(
-                    "response"
-                    or "error",
-                    "Webull SELL failed"
-                )
-            )
+            error=str(error_detail)
         )
 
         return {
             "success": False,
             "message":
-                "Webull Sandbox SELL was NOT accepted",
+                "Webull Sandbox OPTION SELL was NOT accepted",
             "contract":
                 contract_symbol,
             "order":
@@ -1840,7 +1908,7 @@ def paper_sell_spy():
     return {
         "success": True,
         "message":
-            "Webull Sandbox SELL accepted",
+            "Webull Sandbox OPTION SELL accepted",
         "account":
             resolve_account(),
         "trade": {
