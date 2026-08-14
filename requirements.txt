@@ -1,5 +1,0 @@
-flask
-gunicorn
-yfinance
-pandas
-webull-openapi-python-sdk
