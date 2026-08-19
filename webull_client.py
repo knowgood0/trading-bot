@@ -8,7 +8,7 @@ from webull.data.common.category import Category
 TRADE_DB='paper_trades.db'
 GOOGLE_SHEETS_URL='https://script.google.com/macros/s/AKfycbzYocjcr-9_YTeaplxao7WLF6aNWi41fDb8z3evhcBot2cy3h9QrU9Q7iePIveY9_mC/exec'
 WEBULL_ENDPOINT='api.sandbox.webull.com'
-WEBULL_ACCOUNT_ID='DQIO6B3HUDJB14G6GF5K0J4J7B'
+WEBULL_ACCOUNT_ID='DBGA758E2BRGBMISKLHF5JHCOA'
 WEBULL_ACCOUNT_NUMBER='DEA73AV9'
 WEBULL_ACCOUNT_NAME='Individual Margin'
 _REQUEST_LOCK=threading.Lock(); _LAST_WEBULL_REQUEST=0.0; _MIN_WEBULL_REQUEST_INTERVAL=1.10
